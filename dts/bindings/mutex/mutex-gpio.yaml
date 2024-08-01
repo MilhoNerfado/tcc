@@ -1,0 +1,36 @@
+# Copyright (c) 2024 Nordic Semiconductor ASA
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  A generic binding for a GPIO-controlled blinking LED. Note that this binding
+  has no vendor prefix, as it does not target a specific device or vendor.
+
+  Example definition in devicetree:
+
+    blink-gpio-led {
+        compatible = "blink-gpio-led";
+        led-gpios = <&gpio0 0 GPIO_ACTIVE_HIGH>;
+        blink-period-ms = <1000>;
+    };
+
+compatible: "mutex-gpio"
+
+include: base.yaml
+
+properties:
+  enable-gpios:
+    type: phandle-array
+    required: true
+    description: GPIO to enable output
+  clock-gpios:
+    type: phandle-array
+    required: true
+    description: GPIO to clock
+  data-gpios:
+    type: phandle-array
+    required: true
+    description: GPIO to send data
+  reset-gpios:
+    type: phandle-array
+    required: true
+    description: GPIO to clear buffer

@@ -1,0 +1,17 @@
+menuconfig BLINK
+    bool "Blink device drivers"
+
+if BLINK
+
+config BLINK_INIT_PRIORITY
+    int "Blink priority"
+    default KERNEL_INIT_PRIORITY_DEVICE
+
+
+module = BLINK
+module-str = blink
+source "subsys/logging/Kconfig.template.log_config"
+
+rsource "Kconfig.gpio_led"
+
+endif # BLINK
