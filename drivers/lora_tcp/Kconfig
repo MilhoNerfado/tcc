@@ -1,0 +1,15 @@
+menuconfig LORA_TCP
+    bool "Blink device drivers"
+
+if LORA_TCP
+
+config BLINK_INIT_PRIORITY
+    int "Blink priority"
+    default KERNEL_INIT_PRIORITY_DEVICE
+
+
+module = LORA_TCP
+module-str = lora_tcp
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # LORA_TCP
