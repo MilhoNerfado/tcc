@@ -18,3 +18,4 @@ manifest:
         # strictly needed by the application.
         name-allowlist:
           - hal_espressif # required by any espressif board
+          - loramac-node # required by LoRa

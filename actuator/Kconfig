@@ -1,1 +1,7 @@
-rsource "drivers/Kconfig"
+menu "Zephyr"
+source "Kconfig.zephyr"
+endmenu
+
+module = ACTUATOR
+module-str = ACTUATOR
+source "subsys/logging/Kconfig.template.log_config"

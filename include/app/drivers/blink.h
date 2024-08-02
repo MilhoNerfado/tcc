@@ -7,4 +7,6 @@
 
 #include <zephyr/device.h>
 
+void blink(void);
+
 #endif //BLINK_H
