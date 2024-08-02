@@ -9,4 +9,4 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(actuator LANGUAGES C)
 
-target_sources(actuator PRIVATE src/main.c)
+target_sources(app PRIVATE src/main.c)

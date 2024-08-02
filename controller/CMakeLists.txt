@@ -9,4 +9,4 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(controller LANGUAGES C)
 
-target_sources(controller PRIVATE src/main.c)
+target_sources(app PRIVATE src/main.c)
