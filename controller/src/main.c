@@ -3,6 +3,8 @@
 #include <string.h>
 #include <app/drivers/lora_tcp.h>
 
+#include "app/drivers/lora_tcp.h"
+
 int main(void)
 {
 	char *data = "Testing data";

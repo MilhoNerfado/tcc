@@ -1,2 +1,4 @@
 menu "Drivers"
+rsource "blink/Kconfig"
+rsource "lora_tcp/Kconfig"
 endmenu

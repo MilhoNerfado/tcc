@@ -11,13 +11,15 @@
 #include <zephyr/sys/check.h>
 #include <zephyr/sys/util_macro.h>
 
+#include "lora_tcp_packet.h"
+
 LOG_MODULE_REGISTER(lora_tcp);
 
 #define DEFAULT_RADIO_NODE DT_ALIAS(lora0)
 
 const struct device *const lora_dev = DEVICE_DT_GET(DEFAULT_RADIO_NODE);
 
-struct lora_modem_config config = {
+struct lora_modem_config lora_comm_config = {
 	.frequency = 865100000,
 	.bandwidth = BW_125_KHZ,
 	.datarate = SF_10,
@@ -28,6 +30,7 @@ struct lora_modem_config config = {
 	.tx_power = 4,
 	.tx = true,
 };
+
 
 struct {
 	bool is_init;
@@ -51,10 +54,14 @@ int lora_tcp_init(uint8_t dev_id)
 		return -1;
 	}
 
-	if (lora_config(lora_dev, &config) < 0) {
+	if (lora_config(lora_dev, &lora_comm_config) < 0) {
 		LOG_ERR("Lora configuration failed");
 		return -EFAULT;
 	}
+
+
+
+
 
 	self.id = dev_id;
 
@@ -87,7 +94,7 @@ static int lora_tcp_build_packet(struct lora_tcp_packet *packet, const uint8_t d
 
 	packet->encrypted.destination_ack = 1000; // TODO random number
 	packet->encrypted.sender_ack = 0;
-	packet->encrypted.flags = LORA_TCP_FLAG_REQUEST;
+	packet->encrypted.flags = LORA_TCP_FLAG_RQST;
 
 	packet->header.destination_id = dest_id;
 	packet->header.sender_id = send_id;

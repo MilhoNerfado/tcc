@@ -7,6 +7,9 @@ config BLINK_INIT_PRIORITY
     int "Blink priority"
     default KERNEL_INIT_PRIORITY_DEVICE
 
+config LORA_TCP_DEVICE_MAX
+    int "Maximum number of registered devices"
+    default 1
 
 module = LORA_TCP
 module-str = lora_tcp
