@@ -18,7 +18,7 @@ int lora_tcp_device_register_new(uint8_t id, uint8_t pub_id, uint8_t priv_id)
 		return -ENOSPC;
 	}
 
-	for (int i = 0; i < MIN(CONFIG_LORA_TCP_DEVICE_MAX, sizeof(device_list_metadata)); i++) {
+	for (int i = 0; i < MIN(CONFIG_LORA_TCP_DEVICE_MAX, sizeof(device_list_metadata)); ++i) {
 		if (device_list_metadata & (1 << i)) {
 			continue;
 		}

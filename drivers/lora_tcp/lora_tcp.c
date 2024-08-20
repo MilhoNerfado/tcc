@@ -12,6 +12,7 @@
 #include <zephyr/sys/util_macro.h>
 
 #include "lora_tcp_packet.h"
+#include "lora_tcp_device.h"
 
 LOG_MODULE_REGISTER(lora_tcp);
 
@@ -32,7 +33,8 @@ struct lora_modem_config lora_comm_config = {
 };
 
 
-struct {
+struct
+{
 	bool is_init;
 	uint8_t id;
 } self = {
@@ -40,8 +42,8 @@ struct {
 	.id = 01,
 };
 
-static int lora_tcp_build_packet(struct lora_tcp_packet *packet, const uint8_t dest_id,
-				 const uint8_t send_id, uint8_t *data, const uint8_t len);
+static int lora_tcp_build_rqst_packet(struct lora_tcp_packet *packet, const uint8_t dest_id,
+                                      const uint8_t send_id, uint8_t *data, const uint8_t len);
 
 int lora_tcp_init(uint8_t dev_id)
 {
@@ -59,10 +61,6 @@ int lora_tcp_init(uint8_t dev_id)
 		return -EFAULT;
 	}
 
-
-
-
-
 	self.id = dev_id;
 
 	return 0;
@@ -70,18 +68,26 @@ int lora_tcp_init(uint8_t dev_id)
 
 int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len)
 {
-	struct lora_tcp_packet send_packet;
-	struct lora_tcp_packet recv_packet;
+	int err;
+	struct lora_tcp_device *device;
 
-	lora_tcp_build_packet(&send_packet, dest_id, self.id, data, data_len);
+	err = lora_tcp_device_get_by_id(dest_id, &device);
+	if (err != 0) {
+		LOG_ERR("ID not registered");
+		return -1;
+	}
 
-	lora_send(lora_dev, (uint8_t *)&send_packet, sizeof(struct lora_tcp_packet));
+	lora_tcp_build_rqst_packet(&device->master.last_pkg, dest_id, self.id, data, data_len);
+
+	lora_send(lora_dev, (uint8_t *)&device->master.last_pkg, sizeof(struct lora_tcp_packet));
+
+	// TODO get result from the transaction
 
 	return 0;
 }
 
-static int lora_tcp_build_packet(struct lora_tcp_packet *packet, const uint8_t dest_id,
-				 const uint8_t send_id, uint8_t *data, const uint8_t len)
+static int lora_tcp_build_rqst_packet(struct lora_tcp_packet *packet, const uint8_t dest_id,
+                                      const uint8_t send_id, uint8_t *data, const uint8_t len)
 {
 
 	if (len > LORA_TCP_DATA_MAX_SIZE) {
@@ -92,7 +98,7 @@ static int lora_tcp_build_packet(struct lora_tcp_packet *packet, const uint8_t d
 	memcpy(packet->encrypted.data, data, len);
 	packet->encrypted.data_len = len;
 
-	packet->encrypted.destination_ack = 1000; // TODO random number
+	packet->encrypted.destination_ack = -1; // TODO random number
 	packet->encrypted.sender_ack = 0;
 	packet->encrypted.flags = LORA_TCP_FLAG_RQST;
 
