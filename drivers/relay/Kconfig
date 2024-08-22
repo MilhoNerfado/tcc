@@ -1,0 +1,12 @@
+menuconfig RELAY
+    bool "Blink device drivers"
+
+if RELAY
+
+
+module = RELAY
+module-str = relay
+source "subsys/logging/Kconfig.template.log_config"
+
+
+endif # RELAY
