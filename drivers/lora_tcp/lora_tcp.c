@@ -11,14 +11,10 @@
 #include <zephyr/sys/check.h>
 #include <zephyr/sys/util_macro.h>
 
-#include "lora_tcp_packet.h"
-#include "lora_tcp_device.h"
-
 LOG_MODULE_REGISTER(lora_tcp);
+#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 
 #define DEFAULT_RADIO_NODE DT_ALIAS(lora0)
-
-const struct device *const lora_dev = DEVICE_DT_GET(DEFAULT_RADIO_NODE);
 
 struct lora_modem_config lora_comm_config = {
 	.frequency = 865100000,
@@ -32,18 +28,18 @@ struct lora_modem_config lora_comm_config = {
 	.tx = true,
 };
 
-
-struct
-{
+struct {
 	bool is_init;
 	uint8_t id;
+	const struct device *const lora_dev;
 } self = {
 	.is_init = false,
-	.id = 01,
+	.id = 0,
+	.lora_dev = DEVICE_DT_GET(DEFAULT_RADIO_NODE),
 };
 
-static int lora_tcp_build_rqst_packet(struct lora_tcp_packet *packet, const uint8_t dest_id,
-                                      const uint8_t send_id, uint8_t *data, const uint8_t len);
+static void lora_receive_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rssi,
+			    int8_t snr);
 
 int lora_tcp_init(uint8_t dev_id)
 {
@@ -51,17 +47,23 @@ int lora_tcp_init(uint8_t dev_id)
 		return 0;
 	}
 
-	if (!device_is_ready(lora_dev)) {
-		LOG_ERR("%s Device not ready ", lora_dev->name);
+	if (!device_is_ready(self.lora_dev)) {
+		LOG_ERR("%s Device not ready ", self.lora_dev->name);
 		return -1;
 	}
 
-	if (lora_config(lora_dev, &lora_comm_config) < 0) {
+	if (lora_config(self.lora_dev, &lora_comm_config) < 0) {
 		LOG_ERR("Lora configuration failed");
 		return -EFAULT;
 	}
 
+	lora_recv_async(self.lora_dev, lora_receive_cb);
+
 	self.id = dev_id;
+
+	self.is_init = true;
+
+	LOG_WRN("Lora TCP Started");
 
 	return 0;
 }
@@ -69,42 +71,28 @@ int lora_tcp_init(uint8_t dev_id)
 int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len)
 {
 	int err;
-	struct lora_tcp_device *device;
 
-	err = lora_tcp_device_get_by_id(dest_id, &device);
-	if (err != 0) {
-		LOG_ERR("ID not registered");
-		return -1;
-	}
+	lora_recv_async(self.lora_dev, NULL);
 
-	lora_tcp_build_rqst_packet(&device->master.last_pkg, dest_id, self.id, data, data_len);
+	lora_send(self.lora_dev, (uint8_t *)data, data_len);
 
-	lora_send(lora_dev, (uint8_t *)&device->master.last_pkg, sizeof(struct lora_tcp_packet));
-
-	// TODO get result from the transaction
+	lora_recv_async(self.lora_dev, lora_receive_cb);
 
 	return 0;
 }
 
-static int lora_tcp_build_rqst_packet(struct lora_tcp_packet *packet, const uint8_t dest_id,
-                                      const uint8_t send_id, uint8_t *data, const uint8_t len)
+static void lora_receive_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rssi,
+			    int8_t snr)
 {
+	static int cnt;
+	static uint8_t buffer[255];
 
-	if (len > LORA_TCP_DATA_MAX_SIZE) {
-		LOG_ERR("Trying to send too much data");
-		return -EINVAL;
-	}
+	ARG_UNUSED(dev);
 
-	memcpy(packet->encrypted.data, data, len);
-	packet->encrypted.data_len = len;
+	printf("AAAAAAAAA");
 
-	packet->encrypted.destination_ack = -1; // TODO random number
-	packet->encrypted.sender_ack = 0;
-	packet->encrypted.flags = LORA_TCP_FLAG_RQST;
+	memset(buffer, 0, 255);
+	memcpy(buffer, data, size);
 
-	packet->header.destination_id = dest_id;
-	packet->header.sender_id = send_id;
-	packet->header.crc = -1; // TODO Calculate CRC (full packet, including data)
-
-	return 0;
-};
+	LOG_INF("Received data: %s (RSSI:%ddBm, SNR:%ddBm)", buffer, rssi, snr);
+}
