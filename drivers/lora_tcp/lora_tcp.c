@@ -24,8 +24,8 @@ struct lora_modem_config lora_comm_config = {
 	.coding_rate = CR_4_5,
 	.iq_inverted = false,
 	.public_network = false,
-	.tx_power = 4,
-	.tx = true,
+	.tx_power = 14,
+	.tx = false,
 };
 
 struct {
@@ -73,9 +73,13 @@ int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len)
 	int err;
 
 	lora_recv_async(self.lora_dev, NULL);
+	lora_comm_config.tx = true;
+	lora_config(self.lora_dev, &lora_comm_config);
 
 	lora_send(self.lora_dev, (uint8_t *)data, data_len);
 
+	lora_comm_config.tx = false;
+	lora_config(self.lora_dev, &lora_comm_config);
 	lora_recv_async(self.lora_dev, lora_receive_cb);
 
 	return 0;
@@ -84,15 +88,12 @@ int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len)
 static void lora_receive_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rssi,
 			    int8_t snr)
 {
-	static int cnt;
-	static uint8_t buffer[255];
+	static uint8_t buffer[30];
 
 	ARG_UNUSED(dev);
 
-	printf("AAAAAAAAA");
-
-	memset(buffer, 0, 255);
-	memcpy(buffer, data, size);
+	memset(buffer, 0, 30);
+	memcpy(buffer, data, MIN(30, size));
 
 	LOG_INF("Received data: %s (RSSI:%ddBm, SNR:%ddBm)", buffer, rssi, snr);
 }
