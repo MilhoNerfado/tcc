@@ -7,41 +7,36 @@
 
 #include <zephyr/kernel.h>
 
-#define LORA_TCP_DATA_MAX_SIZE 10
+/* TODO: Move to prj.conf */
+#define CONFIG_LORA_TCP_DATA_MAX_SIZE 10
+
+#define LORA_TCP_PACKET_MAX_SIZE (CONFIG_LORA_TCP_DATA_MAX_SIZE + sizeof(struct lora_tcp_packet_header))
+
+struct lora_tcp_data
+{
+    uint8_t buffer[CONFIG_LORA_TCP_DATA_MAX_SIZE];
+    size_t len;
+};
 
 struct lora_tcp_packet_header
 {
     uint8_t destination_id;
     uint8_t sender_id;
-    uint16_t crc;
-} __attribute__((packed));
-
-struct lora_tcp_packet_encrypted
-{
-    uint16_t destination_ack;
-    uint16_t sender_ack;
-    uint8_t flags : 4;
-    uint8_t data_len : 4;
-    uint8_t data[LORA_TCP_DATA_MAX_SIZE];
+    uint32_t crc;
 } __attribute__((packed));
 
 struct lora_tcp_packet
 {
     struct lora_tcp_packet_header header;
-    struct lora_tcp_packet_encrypted encrypted;
-} __attribute__((packed));
-
-
-enum lora_tcp_flags
-{
-    LORA_TCP_FLAG_RQST = BIT(0),
-    LORA_TCP_FLAG_SYNC = BIT(1),
-    LORA_TCP_FLAG_ACK = BIT(2),
+    struct lora_tcp_data data;
 };
 
-int lora_tcp_packet_build(struct lora_tcp_packet* packet, const uint8_t flags, uint8_t* data, const uint8_t data_len);
 
-int lora_tcp_packet_encrypt(struct lora_tcp_packet* packet);
+int lora_tcp_packet_build(const uint8_t dest_id, const uint8_t sender_id, const uint32_t crc,
+                          const uint8_t* data, const size_t data_len,
+                          uint8_t buffer[LORA_TCP_PACKET_MAX_SIZE], size_t* buffer_length);
 
+int lora_tcp_packet_unpack(const uint8_t* data, const size_t data_len,
+                           struct lora_tcp_packet* packet);
 
-#endif //LORA_TCP_PACKET_H
+#endif // LORA_TCP_PACKET_H

@@ -1,24 +1,20 @@
-/*
- * Copyright (c) 2019 Manivannan Sadhasivam
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
-#include <zephyr/device.h>
-#include <zephyr/drivers/lora.h>
-#include <zephyr/sys/util.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/shell/shell.h>
 #include <zephyr/kernel.h>
 
 #include "app/drivers/lora_tcp.h"
 
-#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
-#include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(lora_receive);
+LOG_MODULE_REGISTER(main);
+
+K_FIFO_DEFINE(lora_fifo);
 
 int main(void)
 {
+	lora_tcp_init(1, &lora_fifo);
 
-	lora_tcp_init(0);
-	k_sleep(K_FOREVER);
+	LOG_WRN(" --- SYSTEM INIT --- ");
+	LOG_WRN(" --- ACTUATOR --- ");
+
+
 	return 0;
 }

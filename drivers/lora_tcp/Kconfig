@@ -11,6 +11,10 @@ config LORA_TCP_DEVICE_MAX
     int "Maximum number of registered devices"
     default 1
 
+config LORA_TCP_SHELL
+    bool "Enable Lora TCP Shell"
+    default true
+
 module = LORA_TCP
 module-str = lora_tcp
 source "subsys/logging/Kconfig.template.log_config"
