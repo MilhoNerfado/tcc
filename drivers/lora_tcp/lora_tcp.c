@@ -42,9 +42,25 @@ struct {
 	.fifo = NULL,
 };
 
+/**
+ * @brief Callback for receiving messages from lora configured band
+ *
+ * @param dev lora device used on received
+ * @param data pointer to data received
+ * @param size length of bytes received
+ * @param rssi rssi value of message received
+ * @param snr snr value of the message received
+ */
 static void lora_receive_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rssi,
 			    int8_t snr);
 
+/**
+ * @brief Driver initialization function
+ *
+ * @param dev_id ID of the device to be used on P2P communication
+ * @param fifo pointer to a FIFO to store received messages
+ * @return 0 for OK, -X otherwise
+ */
 int lora_tcp_init(uint8_t dev_id, struct k_fifo *fifo)
 {
 	if (self.is_init) {
@@ -77,6 +93,14 @@ int lora_tcp_init(uint8_t dev_id, struct k_fifo *fifo)
 	return 0;
 }
 
+/**
+ * @brief Package and send data using lora tcp protocol
+ *
+ * @param dest_id ID of the receiver device
+ * @param data pointer to an buffer containing data to be sent
+ * @param data_len lenght of data to be sent
+ * @return 0 for OK, -X otherwise
+ */
 int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len)
 {
 	CHECKIF(data_len > CONFIG_LORA_TCP_DATA_MAX_SIZE) {
@@ -103,6 +127,8 @@ int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len)
 	return 0;
 }
 
+/* --- Local functions --- */
+
 static void lora_receive_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rssi,
 			    int8_t snr)
 {
@@ -126,9 +152,10 @@ static void lora_receive_cb(const struct device *dev, uint8_t *data, uint16_t si
 
 	/* TODO: Check CRC */
 	const uint32_t calc_crc = crc32_ieee(packet.data.buffer, packet.data.len);
-	// if (calc_crc != packet.header.crc) {
-	// 	return;
-	// }
+	if (calc_crc != packet.header.crc) {
+		LOG_INF("wrong crc16 | expected: %d | packet had: %d", calc_crc, packet.header.crc);
+		return;
+	}
 
 	/* TODO: All OK, send to fifo */
 
@@ -138,10 +165,13 @@ static void lora_receive_cb(const struct device *dev, uint8_t *data, uint16_t si
 	return;
 }
 
-/* --- */
+/* --- Module Shell functions --- */
 
 #ifdef CONFIG_LORA_TCP_SHELL
 
+/**
+ * @brief Shell command to test lora_tcp functionality
+ */
 static int control_ping(const struct shell *sh, size_t argc, char **argv)
 {
 	char ping[] = "ping";
