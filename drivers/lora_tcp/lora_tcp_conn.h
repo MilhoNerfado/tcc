@@ -5,12 +5,12 @@
 #include <zephyr/kernel.h>
 #include "lora_tcp_device.h"
 
-int lora_tcp_conn_start(uint8_t id);
+int lora_tcp_conn_start(struct lora_tcp_device *device);
 
 int lora_tcp_conn_end(void);
 
-int lora_tcp_conn_get_connected(struct lora_tcp_device **dev);
+struct lora_tcp_device *lora_tcp_conn_get_connected(void);
 
-int lora_tcp_conn_get_old(struct lora_tcp_device **dev);
+struct lora_tcp_device *lora_tcp_conn_get_old(void);
 
 #endif /* LORA_TCP_CONN_H */

@@ -10,11 +10,10 @@ K_FIFO_DEFINE(lora_fifo);
 
 int main(void)
 {
-	lora_tcp_init(1, &lora_fifo);
+	lora_tcp_init(1, 0, &lora_fifo);
 
 	LOG_WRN(" --- SYSTEM INIT --- ");
 	LOG_WRN(" --- ACTUATOR --- ");
-
 
 	return 0;
 }

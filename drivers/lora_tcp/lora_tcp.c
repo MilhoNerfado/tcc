@@ -4,6 +4,7 @@
 
 #include <app/drivers/lora_tcp.h>
 #include "lora_tcp_packet.h"
+#include "lora_tcp_conn.h"
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/lora.h>
@@ -32,12 +33,12 @@ struct lora_modem_config lora_comm_config = {
 
 static struct {
 	bool is_init;
-	uint8_t id;
+	struct lora_tcp_device *device;
 	const struct device *const lora_dev;
 	struct k_fifo *fifo;
 } self = {
 	.is_init = false,
-	.id = 0,
+	.device = NULL,
 	.lora_dev = DEVICE_DT_GET(DEFAULT_RADIO_NODE),
 	.fifo = NULL,
 };
@@ -72,7 +73,7 @@ K_MSGQ_DEFINE(recv_msgq, sizeof(struct lora_tcp_packet), 10, 1);
  * @param fifo pointer to a FIFO to store received messages
  * @return 0 for OK, -X otherwise
  */
-int lora_tcp_init(uint8_t dev_id, struct k_fifo *fifo)
+int lora_tcp_init(uint8_t dev_id, uint8_t dev_key_id, struct k_fifo *fifo)
 {
 	if (self.is_init) {
 		return 0;
@@ -94,7 +95,10 @@ int lora_tcp_init(uint8_t dev_id, struct k_fifo *fifo)
 
 	lora_recv_async(self.lora_dev, lora_receive_cb);
 
-	self.id = dev_id;
+	lora_tcp_device_self_set(dev_id, dev_key_id);
+
+	self.device = lora_tcp_device_self_get();
+
 	self.fifo = fifo;
 
 	self.is_init = true;
@@ -124,7 +128,7 @@ int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len)
 	const uint32_t crc = crc32_ieee(data, data_len);
 
 	struct lora_tcp_packet packet = {
-		.header.sender_id = self.id,
+		.header.sender_id = self.device->id,
 		.header.destination_id = dest_id,
 		.header.crc = crc,
 		.header.is_sync = false,
@@ -167,14 +171,8 @@ static void lora_receive_cb(const struct device *dev, uint8_t *data, uint16_t si
 
 	lora_tcp_packet_unpack(data, size, &packet);
 
-	if (packet.header.destination_id != self.id) {
+	if (packet.header.destination_id != self.device->id) {
 		LOG_INF("destination ID not self ID | dest id: %d", packet.header.destination_id);
-		return;
-	}
-
-	const uint32_t calc_crc = crc32_ieee(packet.data.buffer, packet.data.len);
-	if (calc_crc != packet.header.crc) {
-		LOG_INF("wrong crc16 | expected: %d | packet had: %d", calc_crc, packet.header.crc);
 		return;
 	}
 
@@ -195,13 +193,48 @@ static void lora_recv_thread(void *arg1, void *arg2, void *arg3)
 
 	struct lora_tcp_packet packet;
 
+	struct lora_tcp_device *conn_device;
+
 	while (1) {
 		k_msgq_get(&recv_msgq, &packet, K_FOREVER);
+
+		const uint32_t calc_crc = crc32_ieee(packet.data.buffer, packet.data.len);
+		if (calc_crc != packet.header.crc) {
+			LOG_INF("wrong crc16 | expected: %d | packet had: %d", calc_crc,
+				packet.header.crc);
+			return;
+		}
+
 		LOG_INF("Message received");
 
 		if (packet.header.is_ack) {
+			// TODO: Add sync packet support later
 			return;
 		}
+
+		conn_device = lora_tcp_device_get_by_id(packet.header.sender_id);
+
+		int err = lora_tcp_conn_start(conn_device);
+
+		if (err == -EBUSY) {
+			if (lora_tcp_conn_get_connected() == conn_device) {
+				// TODO: Send connected packet
+				return;
+			}
+			if (lora_tcp_conn_get_old() == conn_device) {
+				// TODO: Send old packet
+				return;
+			}
+			// TODO: SEND device busy status packet
+		}
+
+		if (err == -ENODEV) {
+			// TODO: SEND refused status packet
+		}
+
+		// TODO: Run callback function
+		//
+		// TODO: Fill packet to send
 
 		// TODO: Send ACK (with data)
 	}

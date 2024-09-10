@@ -25,20 +25,19 @@ static struct {
 	.next = false,
 };
 
-int lora_tcp_conn_start(uint8_t id)
+int lora_tcp_conn_start(struct lora_tcp_device *device)
 {
 	if (self.connected != NULL) {
 		return -EBUSY;
 	}
 
-	struct lora_tcp_device *dev = lora_tcp_device_get_by_id(id);
-	if (dev == NULL) {
+	if (device == NULL) {
 		return -ENODEV;
 	}
 
 	self.connected = &self.connections[self.next];
 	self.connected->is_connected = true;
-	self.connected->device = dev;
+	self.connected->device = device;
 	self.next = !self.next;
 
 	return 0;
@@ -57,30 +56,21 @@ int lora_tcp_conn_end(void)
 	return 0;
 }
 
-int lora_tcp_conn_get_connected(struct lora_tcp_device **dev)
+struct lora_tcp_device *lora_tcp_conn_get_connected(void)
 {
-	CHECKIF(dev == NULL) {
-		return -EINVAL;
-	}
-
 	if (self.connected != NULL) {
-		*dev = self.connected->device;
+		return self.connected->device;
 	}
-
-	return -ENODEV;
+	return NULL;
 }
 
-int lora_tcp_conn_get_old(struct lora_tcp_device **id)
+struct lora_tcp_device *lora_tcp_conn_get_old(void)
 {
-	CHECKIF(id == NULL) {
-		return -EINVAL;
-	}
-
 	if (self.old != NULL) {
-		*id = self.old->device;
+		return self.old->device;
 	};
 
-	return -ENODEV;
+	return NULL;
 }
 
 // Might need to use this thing
