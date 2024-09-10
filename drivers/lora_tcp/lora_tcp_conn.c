@@ -9,6 +9,11 @@
 
 LOG_MODULE_REGISTER(lora_tcp_conn);
 
+struct lora_tcp_conn_connection {
+	struct lora_tcp_device *device;
+	bool is_connected;
+};
+
 static struct {
 	struct lora_tcp_conn_connection connections[2];
 	struct lora_tcp_conn_connection *connected;
@@ -26,8 +31,14 @@ int lora_tcp_conn_start(uint8_t id)
 		return -EBUSY;
 	}
 
+	struct lora_tcp_device *dev = lora_tcp_device_get_by_id(id);
+	if (dev == NULL) {
+		return -ENODEV;
+	}
+
 	self.connected = &self.connections[self.next];
 	self.connected->is_connected = true;
+	self.connected->device = dev;
 	self.next = !self.next;
 
 	return 0;
@@ -46,32 +57,33 @@ int lora_tcp_conn_end(void)
 	return 0;
 }
 
-int lora_tcp_conn_get_connected(uint8_t *id)
+int lora_tcp_conn_get_connected(struct lora_tcp_device **dev)
 {
-	CHECKIF(id == NULL) {
+	CHECKIF(dev == NULL) {
 		return -EINVAL;
 	}
 
 	if (self.connected != NULL) {
-		*id = self.connected->device_id;
+		*dev = self.connected->device;
 	}
 
 	return -ENODEV;
 }
 
-int lora_tcp_conn_get_old(uint8_t *id)
+int lora_tcp_conn_get_old(struct lora_tcp_device **id)
 {
 	CHECKIF(id == NULL) {
 		return -EINVAL;
 	}
 
 	if (self.old != NULL) {
-		*id = self.old->device_id;
+		*id = self.old->device;
 	};
 
 	return -ENODEV;
 }
 
+// Might need to use this thing
 int lora_tcp_conn_find(uint8_t id, struct lora_tcp_conn_connection **conn)
 {
 	CHECKIF(conn == NULL) {
@@ -79,7 +91,7 @@ int lora_tcp_conn_find(uint8_t id, struct lora_tcp_conn_connection **conn)
 	};
 
 	for (size_t i = 0; i < 2; i++) {
-		if (self.connections[i].device_id == id) {
+		if (self.connections[i].device->id == id) {
 			*conn = &self.connections[i];
 		}
 	}
