@@ -4,59 +4,78 @@
 
 #include "lora_tcp_device.h"
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/check.h>
 
 LOG_MODULE_REGISTER(lora_tcp_device);
 
-static struct lora_tcp_device device_list[CONFIG_LORA_TCP_DEVICE_MAX] = {0};
+static struct {
+	struct lora_tcp_device device;
+	struct lora_tcp_device device_list[CONFIG_LORA_TCP_DEVICE_MAX];
+	bool is_init;
+} self = {
+	.device_list = {0},
+	.is_init = false,
+};
 
-static uint64_t device_list_metadata = 0;
-
-int lora_tcp_device_register_new(uint8_t id, uint8_t pub_id, uint8_t priv_id)
+void lora_tcp_device_self_set(uint8_t id, uint8_t key_id)
 {
-	if (device_list_metadata == -1) {
-		LOG_WRN("Not enought space for more devices");
-		return -ENOSPC;
+	self.device.id = id;
+	self.device.key_id = key_id;
+
+	self.is_init = true;
+}
+
+struct lora_tcp_device *lora_tcp_device_self_get(void)
+{
+	if (!self.is_init) {
+		return NULL;
 	}
 
-	for (int i = 0; i < MIN(CONFIG_LORA_TCP_DEVICE_MAX, sizeof(device_list_metadata)); ++i) {
-		if (device_list_metadata & (1 << i)) {
+	return &self.device;
+}
+
+int lora_tcp_device_register(uint8_t id, uint8_t key_id)
+{
+
+	for (size_t i = 0; i < CONFIG_LORA_TCP_DEVICE_MAX; i++) {
+		if (self.device_list[i].id == id && self.device_list[i].is_registered == true) {
+			LOG_WRN("Device ID already registered");
+			return -EEXIST;
+		}
+		if (self.device_list[i].is_registered == true) {
 			continue;
 		}
 
-		// TODO Add device to the list
-		device_list[i].ids.dev_id = id;
-		device_list[i].ids.priv_key_id = priv_id;
-		device_list[i].ids.pub_key_id = pub_id;
-
-		device_list_metadata += (1 << i);
+		self.device_list[i].id = id;
+		self.device_list[i].key_id = key_id;
+		self.device_list[i].is_registered = true;
 	}
 
 	return 0;
 }
 
-int lora_tcp_device_get_by_id(uint8_t id, struct lora_tcp_device **device_p)
+int lora_tcp_device_unregister(uint8_t id)
 {
-	if (device_list_metadata == 0) {
-		LOG_DBG("device list is empty");
+	struct lora_tcp_device *dev = lora_tcp_device_get_by_id(id);
+
+	if (dev == NULL) {
 		return -ENODEV;
 	}
 
-	for (int i = 0; i < MIN(CONFIG_LORA_TCP_DEVICE_MAX, sizeof(device_list_metadata)); i++) {
-		if (device_list[i].ids.dev_id == id) {
-			if (device_p != NULL) {
-				*device_p = &device_list[i];
-			}
+	dev->id = 0;
+	dev->key_id = 0;
+	dev->is_registered = false;
 
-			return 0;
+	return 0;
+}
+
+struct lora_tcp_device *lora_tcp_device_get_by_id(uint8_t id)
+{
+	for (size_t i = 0; i < CONFIG_LORA_TCP_DEVICE_MAX; i++) {
+		if (self.device_list[i].id == id && self.device_list[i].is_registered) {
+			return &self.device_list[i];
 		}
 	}
 
-	LOG_DBG("device not found");
-	return -ENODEV;
-}
-
-void lora_tcp_device_clear_list(void)
-{
-	memset(device_list, 0, sizeof(struct lora_tcp_device) * CONFIG_LORA_TCP_DEVICE_MAX);
-	device_list_metadata = 0;
+	return NULL;
 }

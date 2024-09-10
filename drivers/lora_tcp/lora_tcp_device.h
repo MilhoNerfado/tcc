@@ -7,37 +7,20 @@
 
 #include <zephyr/kernel.h>
 
-#include "lora_tcp_packet.h"
-
-struct lora_tcp_device_ids {
-	uint8_t dev_id;
-	uint8_t pub_key_id;
-	uint8_t priv_key_id;
-};
-
-struct lora_tcp_device_master {
-	uint8_t master_ack;
-	uint8_t slave_ack;
-	struct lora_tcp_packet last_pkg;
-	struct k_timer timer;
-	// uint8_t tries; // TODO check if it's needed (the timer might already have this feature)
-};
-
-struct lora_tcp_device_slave {
-	uint8_t master_ack;
-	uint8_t slave_ack;
-	struct lora_tcp_packet last_pkg;
-	// TODO Add callback pointer
-};
-
 struct lora_tcp_device {
-	struct lora_tcp_device_ids ids;
-	struct lora_tcp_device_master master;
-	struct lora_tcp_device_slave slave;
+	bool is_registered;
+	uint8_t id;
+	uint8_t key_id;
 };
 
-int lora_tcp_device_register_new(uint8_t id, uint8_t pub_id, uint8_t priv_id);
+void lora_tcp_device_self_set(uint8_t id, uint8_t key_id);
 
-int lora_tcp_device_get_by_id(uint8_t id, struct lora_tcp_device **device_p);
+struct lora_tcp_device *lora_tcp_device_self_get(void);
+
+int lora_tcp_device_register(uint8_t id, uint8_t key_id);
+
+int lora_tcp_device_unregister(uint8_t id);
+
+struct lora_tcp_device *lora_tcp_device_get_by_id(uint8_t id);
 
 #endif // LORA_TCP_DEVICE_H
