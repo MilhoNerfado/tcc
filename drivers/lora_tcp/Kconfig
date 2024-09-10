@@ -15,6 +15,18 @@ config LORA_TCP_SHELL
     bool "Enable Lora TCP Shell"
     default true
 
+config LORA_TCP_DATA_MAX_SIZE
+    int "Maxumim number of bytes per packet stream"
+    default 10
+
+config LORA_TCP_RECV_THREAD_STACK_SIZE
+    int "Stack size for the receiving thread"
+    default 500
+
+config LORA_TCP_RECV_THREAD_PRIORITY
+    int "Priority for the receiving thread"
+    default 5
+
 module = LORA_TCP
 module-str = lora_tcp
 source "subsys/logging/Kconfig.template.log_config"

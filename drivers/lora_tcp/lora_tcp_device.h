@@ -36,7 +36,6 @@ struct lora_tcp_device {
 	struct lora_tcp_device_slave slave;
 };
 
-
 int lora_tcp_device_register_new(uint8_t id, uint8_t pub_id, uint8_t priv_id);
 
 int lora_tcp_device_get_by_id(uint8_t id, struct lora_tcp_device **device_p);

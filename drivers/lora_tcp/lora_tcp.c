@@ -30,7 +30,7 @@ struct lora_modem_config lora_comm_config = {
 	.tx = false,
 };
 
-struct {
+static struct {
 	bool is_init;
 	uint8_t id;
 	const struct device *const lora_dev;
@@ -53,6 +53,17 @@ struct {
  */
 static void lora_receive_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rssi,
 			    int8_t snr);
+
+/**
+ * @brief Thread for receiving data directly from the the lora_receive_cb using a message queue as
+ * medium.
+ */
+static void lora_recv_thread(void *arg1, void *arg2, void *arg3);
+
+K_THREAD_DEFINE(recv_thr, CONFIG_LORA_TCP_RECV_THREAD_STACK_SIZE, lora_recv_thread, NULL, NULL,
+		NULL, CONFIG_LORA_TCP_RECV_THREAD_PRIORITY, 0, 0);
+
+K_MSGQ_DEFINE(recv_msgq, sizeof(struct lora_tcp_packet), 10, 1);
 
 /**
  * @brief Driver initialization function
@@ -112,7 +123,20 @@ int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len)
 	size_t buffer_len;
 	const uint32_t crc = crc32_ieee(data, data_len);
 
-	lora_tcp_packet_build(dest_id, self.id, crc, data, data_len, buffer, &buffer_len);
+	struct lora_tcp_packet packet = {
+		.header.sender_id = self.id,
+		.header.destination_id = dest_id,
+		.header.crc = crc,
+		.header.is_sync = false,
+		.header.is_ack = false,
+		.header.status = LORA_TCP_PACKET_STATUS_OK,
+		.data.len = data_len,
+	};
+
+	memset(packet.data.buffer, 0, CONFIG_LORA_TCP_DATA_MAX_SIZE);
+	memcpy(packet.data.buffer, data, data_len);
+
+	lora_tcp_packet_build(&packet, buffer, &buffer_len);
 
 	lora_recv_async(self.lora_dev, NULL);
 	lora_comm_config.tx = true;
@@ -141,27 +165,46 @@ static void lora_receive_cb(const struct device *dev, uint8_t *data, uint16_t si
 		return;
 	}
 
-	/*TODO: UNPACK*/
 	lora_tcp_packet_unpack(data, size, &packet);
 
-	/* TODO: Check ID */
 	if (packet.header.destination_id != self.id) {
-		LOG_INF("wrong id | dest id: %d", packet.header.destination_id);
+		LOG_INF("destination ID not self ID | dest id: %d", packet.header.destination_id);
 		return;
 	}
 
-	/* TODO: Check CRC */
 	const uint32_t calc_crc = crc32_ieee(packet.data.buffer, packet.data.len);
 	if (calc_crc != packet.header.crc) {
 		LOG_INF("wrong crc16 | expected: %d | packet had: %d", calc_crc, packet.header.crc);
 		return;
 	}
 
-	/* TODO: All OK, send to fifo */
+	/* TODO: check errors from msg queue */
+	k_msgq_put(&recv_msgq, &packet, K_NO_WAIT);
 
 	LOG_WRN("Received msg:");
 	LOG_HEXDUMP_WRN(packet.data.buffer, packet.data.len, " ");
 
+	return;
+}
+
+static void lora_recv_thread(void *arg1, void *arg2, void *arg3)
+{
+	ARG_UNUSED(arg1);
+	ARG_UNUSED(arg2);
+	ARG_UNUSED(arg3);
+
+	struct lora_tcp_packet packet;
+
+	while (1) {
+		k_msgq_get(&recv_msgq, &packet, K_FOREVER);
+		LOG_INF("Message received");
+
+		if (packet.header.is_ack) {
+			return;
+		}
+
+		// TODO: Send ACK (with data)
+	}
 	return;
 }
 
