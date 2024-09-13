@@ -6,7 +6,6 @@
 #define LORA_TCP_H
 
 #include <zephyr/kernel.h>
-#include <zephyr/sys/crc.h>
 
 int lora_tcp_init(uint8_t dev_id, uint8_t dev_key_id, struct k_fifo *fifo);
 

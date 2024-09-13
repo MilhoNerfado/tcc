@@ -28,7 +28,7 @@ struct lora_tcp_packet_header {
 	uint8_t is_sync: 1;
 	uint8_t is_ack: 1;
 	enum lora_tcp_packet_status status: 2;
-	uint8_t reserved: 4;
+	uint8_t pkt_id: 4;
 	uint32_t crc;
 } __attribute__((packed));
 
@@ -42,5 +42,8 @@ int lora_tcp_packet_build(struct lora_tcp_packet *packet, uint8_t buffer[LORA_TC
 
 int lora_tcp_packet_unpack(const uint8_t *data, const size_t data_len,
 			   struct lora_tcp_packet *packet);
+
+int lora_tcp_packet_copy_header(struct lora_tcp_packet_header *src,
+				struct lora_tcp_packet_header *dest);
 
 #endif // LORA_TCP_PACKET_H

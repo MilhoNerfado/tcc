@@ -17,8 +17,6 @@ int lora_tcp_packet_build(struct lora_tcp_packet *packet, uint8_t buffer[LORA_TC
 		return -1;
 	}
 
-	memset(buffer, 0, LORA_TCP_PACKET_MAX_SIZE);
-
 	memcpy(buffer, packet, packet->data.len + sizeof(struct lora_tcp_packet_header));
 
 	*buffer_length = packet->data.len + sizeof(struct lora_tcp_packet_header);
@@ -43,6 +41,19 @@ int lora_tcp_packet_unpack(const uint8_t *data, const size_t data_len,
 	memcpy(packet, data, data_len);
 
 	packet->data.len = data_len - sizeof(struct lora_tcp_packet_header);
+
+	return 0;
+}
+
+int lora_tcp_packet_copy_header(struct lora_tcp_packet_header *src,
+				struct lora_tcp_packet_header *dest)
+{
+	CHECKIF(src == NULL || dest == NULL) {
+		LOG_ERR("Invalid params null pointer");
+		return -EINVAL;
+	}
+
+	memcpy(dest, src, sizeof(struct lora_tcp_packet_header));
 
 	return 0;
 }

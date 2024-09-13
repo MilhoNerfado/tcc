@@ -36,6 +36,10 @@ struct lora_tcp_device *lora_tcp_device_self_get(void)
 
 int lora_tcp_device_register(uint8_t id, uint8_t key_id)
 {
+	CHECKIF(id == self.device.id) {
+		LOG_ERR("Trying to register own ID as another");
+		return -EINVAL;
+	}
 
 	for (size_t i = 0; i < CONFIG_LORA_TCP_DEVICE_MAX; i++) {
 		if (self.device_list[i].id == id && self.device_list[i].is_registered == true) {
@@ -56,6 +60,11 @@ int lora_tcp_device_register(uint8_t id, uint8_t key_id)
 
 int lora_tcp_device_unregister(uint8_t id)
 {
+	CHECKIF(id == self.device.id) {
+		LOG_ERR("Shouldn't unregister itself");
+		return -EINVAL;
+	}
+
 	struct lora_tcp_device *dev = lora_tcp_device_get_by_id(id);
 
 	if (dev == NULL) {
@@ -78,4 +87,33 @@ struct lora_tcp_device *lora_tcp_device_get_by_id(uint8_t id)
 	}
 
 	return NULL;
+}
+
+int lora_tcp_device_get_pkt_id(struct lora_tcp_device *device)
+{
+	CHECKIF(device == NULL) {
+		LOG_ERR("Arg invall");
+		return -EINVAL;
+	}
+
+	return device->snd_pkt_id;
+}
+
+int lora_tcp_device_update_pkt_id(struct lora_tcp_device *device)
+{
+	CHECKIF(device == NULL) {
+		LOG_ERR("Arg invall");
+		return -EINVAL;
+	}
+
+	uint8_t tmp = device->snd_pkt_id;
+
+	if (tmp == 15) {
+		tmp = 0;
+	} else {
+		tmp++;
+	}
+
+	device->snd_pkt_id = tmp;
+	return device->snd_pkt_id;
 }
