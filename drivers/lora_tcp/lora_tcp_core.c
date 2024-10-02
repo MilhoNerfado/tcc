@@ -16,6 +16,21 @@ LOG_MODULE_REGISTER(lora_tcp_core);
 
 #define DEFAULT_RADIO_NODE DT_ALIAS(lora0)
 
+enum lora_tcp_transaction_status {
+	LORA_TCP_TRANSACTION_STATUS_IDLE,
+	LORA_TCP_TRANSACTION_STATUS_OK,
+	LORA_TCP_TRANSACTION_STATUS_FAIL,
+};
+
+struct lora_tcp_core_transaction {
+	uint8_t count;
+	enum lora_tcp_transaction_status status;
+	uint8_t *rsp;
+	size_t *rsp_len;
+	struct lora_tcp_device *device;
+	struct lora_tcp_packet packet;
+};
+
 static int simple_send(struct lora_tcp_packet *packet);
 
 /**
@@ -36,10 +51,16 @@ static void lora_receive_cb(const struct device *dev, uint8_t *data, uint16_t si
  */
 static void lora_recv_thread(void *arg1, void *arg2, void *arg3);
 
+static void lora_send_timer(struct k_timer *timer);
+
 K_THREAD_DEFINE(recv_thr, CONFIG_LORA_TCP_RECV_THREAD_STACK_SIZE, lora_recv_thread, NULL, NULL,
 		NULL, CONFIG_LORA_TCP_RECV_THREAD_PRIORITY, 0, 0);
 
 K_MSGQ_DEFINE(recv_msgq, sizeof(struct lora_tcp_packet), 10, 1);
+
+K_TIMER_DEFINE(lora_send_timer_struct, lora_send_timer, NULL);
+
+K_SEM_DEFINE(lora_send_sem, 1, 1);
 
 struct lora_modem_config lora_comm_config = {
 	.frequency = 865100000,
@@ -57,22 +78,26 @@ static struct {
 	bool is_init;
 	struct lora_tcp_device *device;
 	const struct device *const lora_dev;
-
+	lora_tcp_core_cb cb;
+	struct lora_tcp_core_transaction transation;
 } self = {
 	.is_init = false,
 	.device = NULL,
 	.lora_dev = DEVICE_DT_GET(DEFAULT_RADIO_NODE),
+	.cb = NULL,
 };
 
 /* --- Public functions --- */
 
-int lora_tcp_core_init(uint8_t dev_id, uint8_t dev_key_id)
+int lora_tcp_core_init(uint8_t dev_id, uint8_t dev_key_id, lora_tcp_core_cb callback)
 {
 
 	if (!device_is_ready(self.lora_dev)) {
 		LOG_ERR("%s Device not ready ", self.lora_dev->name);
 		return -1;
 	}
+
+	self.cb = callback;
 
 	/* Init Lora on correct mode */
 	lora_comm_config.tx = false;
@@ -90,46 +115,48 @@ int lora_tcp_core_init(uint8_t dev_id, uint8_t dev_key_id)
 	return 0;
 }
 
-/**
- * @brief Package and send data using lora tcp protocol
- *
- * @param dest_id ID of the receiver device
- * @param data pointer to an buffer containing data to be sent
- * @param data_len lenght of data to be sent
- * @return 0 for OK, -X otherwise
- */
-int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len, uint8_t *response,
-		  uint8_t *response_len, size_t response_size)
+int lora_tcp_core_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len, uint8_t *rsp,
+		       size_t *rsp_len)
 {
+	LOG_ERR("START");
 	CHECKIF(data_len > CONFIG_LORA_TCP_DATA_MAX_SIZE) {
 		LOG_ERR("Data too long");
 		return -EINVAL;
 	};
 
-	CHECKIF(response == NULL && response_size != 0) {
-		LOG_ERR("Response buffer expected but not given, response_size: %lu",
-			response_size);
-		return -EINVAL;
+	LOG_ERR("START");
+	struct lora_tcp_packet_header *header = &self.transation.packet.header;
+
+	struct lora_tcp_device *device = lora_tcp_device_get_by_id(dest_id);
+	if (device == NULL) {
+		LOG_WRN("Device not found");
+		return -ENODEV;
 	}
+	LOG_ERR("START");
 
-	uint8_t buffer[LORA_TCP_PACKET_MAX_SIZE];
-	size_t buffer_len;
-	const uint32_t crc = crc32_ieee(data, data_len);
+	device->snd_pkt_id++;
+	self.transation.device = device;
+	self.transation.status = LORA_TCP_TRANSACTION_STATUS_IDLE;
 
-	struct lora_tcp_packet packet = {
-		.header.sender_id = self.device->id,
-		.header.destination_id = dest_id,
-		.header.crc = crc,
-		.header.is_sync = false,
-		.header.is_ack = false,
-		.header.status = LORA_TCP_PACKET_STATUS_OK,
-		.data.len = data_len,
-	};
+	header->pkt_id = device->snd_pkt_id;
+	header->sender_id = self.device->id;
+	header->destination_id = dest_id;
+	header->is_ack = false;
+	header->status = LORA_TCP_PACKET_STATUS_OK;
+	header->crc = crc32_ieee(data, data_len);
 
-	memset(packet.data.buffer, 0, CONFIG_LORA_TCP_DATA_MAX_SIZE);
-	memcpy(packet.data.buffer, data, data_len);
+	size_t len = data_len;
 
-	simple_send(&packet);
+	memcpy(self.transation.packet.data.buffer, data, data_len);
+	self.transation.packet.data.len = data_len;
+
+	self.transation.rsp = rsp;
+	self.transation.rsp_len = rsp_len;
+	LOG_ERR("START");
+
+	k_timer_start(&lora_send_timer_struct, K_NO_WAIT, K_SECONDS(5));
+	k_sem_take(&lora_send_sem, K_NO_WAIT);
+	LOG_ERR("START");
 
 	return 0;
 }
@@ -175,7 +202,6 @@ static void lora_receive_cb(const struct device *dev, uint8_t *data, uint16_t si
 		return;
 	}
 
-	/* TODO: check errors from msg queue */
 	k_msgq_put(&recv_msgq, &packet, K_NO_WAIT);
 
 	LOG_WRN("Received msg:");
@@ -191,9 +217,13 @@ static void lora_recv_thread(void *arg1, void *arg2, void *arg3)
 	ARG_UNUSED(arg3);
 
 	struct lora_tcp_packet recv_packet;
-	struct lora_tcp_packet send_packet;
+	struct lora_tcp_packet send_packet = {
+		.header = {.is_ack = true, .sender_id = self.device->id}};
+	size_t tmp_size;
 
 	struct lora_tcp_device *conn_device;
+
+	enum lora_tcp_conn_result conn_result;
 
 	while (1) {
 		k_msgq_get(&recv_msgq, &recv_packet, K_FOREVER);
@@ -207,21 +237,78 @@ static void lora_recv_thread(void *arg1, void *arg2, void *arg3)
 
 		LOG_INF("Message received");
 
-		if (recv_packet.header.is_ack) {
-			// TODO: Send Data to sender (mutex??) | If it fails means that no ack was
-			// expected, so should send a timeout.
+		if (recv_packet.header.is_ack &&
+		    recv_packet.header.sender_id == self.transation.device->id) {
 
-			// TODO: Add sync packet support later
+			self.transation.status = recv_packet.header.status
+							 ? LORA_TCP_TRANSACTION_STATUS_OK
+							 : LORA_TCP_TRANSACTION_STATUS_FAIL;
+
+			if (self.transation.rsp != NULL && self.transation.rsp_len != NULL) {
+				*self.transation.rsp_len = recv_packet.data.len;
+				memcpy(self.transation.rsp, recv_packet.data.buffer,
+				       recv_packet.data.len);
+			}
+
+			k_sem_give(&lora_send_sem);
+
+			self.transation.count = 0;
 			return;
 		}
 
-		lora_tcp_conn_resolve(&recv_packet);
+		lora_tcp_conn_resolve(&recv_packet, &conn_result);
 
-		// TODO: Run callback function
-		//
-		// TODO: Fill packet to send
+		switch (conn_result) {
+		case LORA_TCP_CONN_RESULT_OK:
+			tmp_size = CONFIG_LORA_TCP_DATA_MAX_SIZE;
 
-		// TODO: Send ACK (with data)
+			self.cb(recv_packet.data.buffer, recv_packet.data.len,
+				send_packet.data.buffer, &tmp_size);
+
+			send_packet.data.len = tmp_size;
+
+			send_packet.header.status = LORA_TCP_PACKET_STATUS_OK;
+			lora_tcp_conn_save_packet(&send_packet);
+			break;
+		case LORA_TCP_CONN_RESULT_SEND_OLD:
+			send_packet.header.status = LORA_TCP_PACKET_STATUS_OK;
+			lora_tcp_conn_copy_old_packet(&send_packet);
+			break;
+		case LORA_TCP_CONN_RESULT_SEND_CONNECTED:
+			send_packet.header.status = LORA_TCP_PACKET_STATUS_OK;
+			lora_tcp_conn_copy_connected_packet(&send_packet);
+			break;
+
+		case LORA_TCP_CONN_RESULT_SEND_REFUSED:
+			send_packet.header.status = LORA_TCP_PACKET_STATUS_REFUSED;
+			send_packet.data.len = 0;
+			break;
+
+		case _LORA_TCP_CONN_RESULT_MAXX:
+			LOG_ERR("Shouldn't get here | F");
+			break;
+		}
+
+		send_packet.header.destination_id = recv_packet.header.sender_id;
+
+		send_packet.header.crc = crc32_ieee(send_packet.data.buffer, send_packet.data.len);
+
+		simple_send(&send_packet);
 	}
 	return;
+}
+
+static void lora_send_timer(struct k_timer *timer)
+{
+	self.transation.count++;
+
+	simple_send(&self.transation.packet);
+
+	if (self.transation.count > 3) {
+		self.transation.count = 0;
+
+		self.transation.status = LORA_TCP_TRANSACTION_STATUS_FAIL;
+
+		k_sem_give(&lora_send_sem);
+	}
 }

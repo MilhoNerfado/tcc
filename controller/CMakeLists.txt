@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.13.1)
 
-set(BOARD heltec_wifi_lora32_v2)
+set(BOARD heltec_wifi_lora32_v2/esp32/procpu)
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
