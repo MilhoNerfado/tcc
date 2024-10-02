@@ -44,4 +44,3 @@ int lora_tcp_packet_unpack(const uint8_t *data, const size_t data_len,
 
 	return 0;
 }
-

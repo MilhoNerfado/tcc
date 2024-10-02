@@ -20,7 +20,6 @@ static struct {
 void lora_tcp_device_self_set(uint8_t id, uint8_t key_id)
 {
 	self.device.id = id;
-	self.device.key_id = key_id;
 
 	self.is_init = true;
 }
@@ -51,7 +50,6 @@ int lora_tcp_device_register(uint8_t id, uint8_t key_id)
 		}
 
 		self.device_list[i].id = id;
-		self.device_list[i].key_id = key_id;
 		self.device_list[i].is_registered = true;
 	}
 
@@ -72,7 +70,6 @@ int lora_tcp_device_unregister(uint8_t id)
 	}
 
 	dev->id = 0;
-	dev->key_id = 0;
 	dev->is_registered = false;
 
 	return 0;

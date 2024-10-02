@@ -10,7 +10,6 @@
 #define LORA_TCP_PACKET_MAX_SIZE                                                                   \
 	(CONFIG_LORA_TCP_DATA_MAX_SIZE + sizeof(struct lora_tcp_packet_header))
 
-
 struct lora_tcp_packet_header {
 	uint8_t destination_id;
 	uint8_t sender_id;
@@ -30,6 +29,5 @@ int lora_tcp_packet_build(struct lora_tcp_packet *packet, uint8_t buffer[LORA_TC
 
 int lora_tcp_packet_unpack(const uint8_t *data, const size_t data_len,
 			   struct lora_tcp_packet *packet);
-
 
 #endif // LORA_TCP_PACKET_H
