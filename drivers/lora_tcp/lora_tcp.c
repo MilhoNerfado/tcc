@@ -32,7 +32,7 @@ static struct {
  * @param fifo pointer to a FIFO to store received messages
  * @return 0 for OK, -X otherwise
  */
-int lora_tcp_init(uint8_t dev_id, uint8_t dev_key_id, void *cb)
+int lora_tcp_init(uint8_t dev_id, void *cb)
 {
 	if (self.is_init) {
 		return 0;
@@ -42,8 +42,6 @@ int lora_tcp_init(uint8_t dev_id, uint8_t dev_key_id, void *cb)
 		LOG_ERR("Invalid callback pointer");
 		return -EINVAL;
 	}
-
-	lora_tcp_core_init(dev_id, dev_key_id, cb);
 
 	self.is_init = true;
 
@@ -63,17 +61,17 @@ int lora_tcp_init(uint8_t dev_id, uint8_t dev_key_id, void *cb)
 int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len, uint8_t *rsp,
 		  size_t *rsp_len)
 {
-	return lora_tcp_core_send(dest_id, data, data_len, rsp, rsp_len);
+	return 0;
 }
 
-int lora_tcp_register(const uint8_t id, const uint8_t key)
+int lora_tcp_register(const uint8_t id)
 {
-	return lora_tcp_device_register(id, key);
+	return 0;
 }
 
 int lora_tcp_unregister(const uint8_t id)
 {
-	return lora_tcp_device_unregister(id);
+	return 0;
 }
 
 /* --- Module Shell functions --- */
@@ -86,13 +84,6 @@ int lora_tcp_unregister(const uint8_t id)
 static int control_ping(const struct shell *sh, size_t argc, char **argv)
 {
 	char ping[] = "ping";
-	char *end;
-	size_t id;
-
-	// id = strtol(argv[1], &end, 10);
-	// if (end == argv[1] && *end != '\0') {
-	// 	return -1;
-	// }
 
 	lora_tcp_send(1, ping, strlen(ping), NULL, NULL);
 	return 0;
