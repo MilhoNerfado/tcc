@@ -13,17 +13,17 @@ struct lora_tcp_device {
 	uint8_t snd_pkt_id;
 };
 
-void lora_tcp_device_self_set(uint8_t id, uint8_t key_id);
+void lora_tcp_device_self_set(const uint8_t id);
 
 struct lora_tcp_device *lora_tcp_device_self_get(void);
 
-int lora_tcp_device_register(uint8_t id, uint8_t key_id);
+int lora_tcp_device_register(const uint8_t id);
 
-int lora_tcp_device_unregister(uint8_t id);
+int lora_tcp_device_unregister(const uint8_t id);
 
-struct lora_tcp_device *lora_tcp_device_get_by_id(uint8_t id);
+struct lora_tcp_device *lora_tcp_device_get_by_id(const uint8_t id);
 
-int lora_tcp_device_get_pkt_id(struct lora_tcp_device *device);
+int lora_tcp_device_get_pkt_id(const struct lora_tcp_device *device);
 
 int lora_tcp_device_update_pkt_id(struct lora_tcp_device *device);
 

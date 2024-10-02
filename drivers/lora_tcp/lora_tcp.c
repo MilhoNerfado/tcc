@@ -3,7 +3,7 @@
 //
 
 #include <app/drivers/lora_tcp.h>
-#include "lora_tcp_core.h"
+#include "lora_tcp_device.h"
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/lora.h>
@@ -20,16 +20,13 @@ LOG_MODULE_REGISTER(lora_tcp);
 
 static struct {
 	bool is_init;
-	lora_tcp_core_cb cb;
 } self = {
 	.is_init = false,
-	.cb = NULL,
 };
 /**
  * @brief Driver initialization function
  *
  * @param dev_id ID of the device to be used on P2P communication
- * @param fifo pointer to a FIFO to store received messages
  * @return 0 for OK, -X otherwise
  */
 int lora_tcp_init(uint8_t dev_id, void *cb)
@@ -42,6 +39,8 @@ int lora_tcp_init(uint8_t dev_id, void *cb)
 		LOG_ERR("Invalid callback pointer");
 		return -EINVAL;
 	}
+
+	lora_tcp_device_self_set(dev_id);
 
 	self.is_init = true;
 
@@ -66,12 +65,12 @@ int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len, 
 
 int lora_tcp_register(const uint8_t id)
 {
-	return 0;
+	return lora_tcp_device_register(id);
 }
 
 int lora_tcp_unregister(const uint8_t id)
 {
-	return 0;
+	return lora_tcp_device_unregister(id);
 }
 
 /* --- Module Shell functions --- */

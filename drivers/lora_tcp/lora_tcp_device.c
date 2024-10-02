@@ -17,7 +17,7 @@ static struct {
 	.is_init = false,
 };
 
-void lora_tcp_device_self_set(uint8_t id, uint8_t key_id)
+void lora_tcp_device_self_set(const uint8_t id)
 {
 	self.device.id = id;
 
@@ -33,7 +33,7 @@ struct lora_tcp_device *lora_tcp_device_self_get(void)
 	return &self.device;
 }
 
-int lora_tcp_device_register(uint8_t id, uint8_t key_id)
+int lora_tcp_device_register(const uint8_t id)
 {
 	CHECKIF(id == self.device.id) {
 		LOG_ERR("Trying to register own ID as another");
@@ -56,7 +56,7 @@ int lora_tcp_device_register(uint8_t id, uint8_t key_id)
 	return 0;
 }
 
-int lora_tcp_device_unregister(uint8_t id)
+int lora_tcp_device_unregister(const uint8_t id)
 {
 	CHECKIF(id == self.device.id) {
 		LOG_ERR("Shouldn't unregister itself");
@@ -75,7 +75,7 @@ int lora_tcp_device_unregister(uint8_t id)
 	return 0;
 }
 
-struct lora_tcp_device *lora_tcp_device_get_by_id(uint8_t id)
+struct lora_tcp_device *lora_tcp_device_get_by_id(const uint8_t id)
 {
 	for (size_t i = 0; i < CONFIG_LORA_TCP_DEVICE_MAX; i++) {
 		if (self.device_list[i].id == id && self.device_list[i].is_registered) {
@@ -86,7 +86,7 @@ struct lora_tcp_device *lora_tcp_device_get_by_id(uint8_t id)
 	return NULL;
 }
 
-int lora_tcp_device_get_pkt_id(struct lora_tcp_device *device)
+int lora_tcp_device_get_pkt_id(const struct lora_tcp_device *device)
 {
 	CHECKIF(device == NULL) {
 		LOG_ERR("Arg invall");
