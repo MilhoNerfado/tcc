@@ -6,7 +6,6 @@
 #include "lora_tcp_device.h"
 #include "lora_tcp_net.h"
 
-
 #include <zephyr/drivers/lora.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -15,7 +14,6 @@
 #include <zephyr/shell/shell.h>
 
 #include <stdlib.h>
-
 
 LOG_MODULE_REGISTER(lora_tcp);
 #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
@@ -31,14 +29,13 @@ static struct {
  * @param dev_id ID of the device to be used on P2P communication
  * @return 0 for OK, -X otherwise
  */
-int lora_tcp_init(const struct device * dev, uint8_t dev_id, void *cb)
+int lora_tcp_init(const struct device *dev, uint8_t dev_id, void *cb)
 {
 	if (self.is_init) {
 		return 0;
 	}
 
-	CHECKIF(dev == NULL)
-	{
+	CHECKIF(dev == NULL) {
 		LOG_ERR("dev is NULL");
 		return -ENODEV;
 	}
@@ -70,6 +67,12 @@ int lora_tcp_init(const struct device * dev, uint8_t dev_id, void *cb)
 int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len, uint8_t *rsp,
 		  size_t *rsp_len)
 {
+	struct lora_tcp_packet pkt;
+
+	pkt.data_len = data_len;
+	memcpy(pkt.data, data, data_len);
+
+	lora_tcp_net_send(&pkt);
 	return 0;
 }
 
