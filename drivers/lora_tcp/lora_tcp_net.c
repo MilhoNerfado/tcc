@@ -11,21 +11,21 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/lora.h>
 #include <zephyr/sys/check.h>
+#include <zephyr/sys/crc.h>
 
 LOG_MODULE_REGISTER(lora_tcp_net);
 
 #define CONFIG_LORA_TCP_NET_THREAD_STACK_SIZE (1 * 1024)
 
+K_MSGQ_DEFINE(ack_msgq, sizeof(struct lora_tcp_packet), 10, 4);
+
+K_MSGQ_DEFINE(send_msgq, sizeof(struct lora_tcp_packet), 10, 4);
+
 static struct lora_modem_config config;
 static const struct device *lora_dev;
 
-static uint8_t buffer[LORA_TCP_PACKET_MAX_SIZE];
-static size_t buffer_len;
-
 static void recv_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rssi,
 		    int8_t snr);
-
-static void send_packet();
 
 int lora_tcp_net_init(const struct device *dev)
 {
@@ -63,51 +63,129 @@ int lora_tcp_net_init(const struct device *dev)
 static void recv_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rssi,
 		    int8_t snr)
 {
+	struct lora_tcp_packet packet;
+
 	LOG_INF("Received data from device | data_len: %u", size);
 
 	LOG_HEXDUMP_INF(data, size, "Received");
+
+	lora_tcp_packet_unpack(data, size, &packet);
+
+	LOG_INF("send_id: %u | dest_id: %u | crc: %u | pkt_id: %u",
+		packet.header.sender_id, packet.header.destination_id, packet.header.crc,
+		packet.header.pkt_id);
+
+	if (packet.header.destination_id != lora_tcp_device_self_get()->id) {
+
+		return;
+	}
+
+	if (packet.header.crc != crc32_ieee(packet.data, packet.data_len)) {
+		LOG_ERR("CRC mismatch | expected: %d got: %d",
+			crc32_ieee(packet.data, packet.data_len), packet.header.crc);
+		return;
+	}
+
+
+
+	if (packet.header.is_ack) {
+		LOG_WRN("Received ACK");
+		k_msgq_put(&ack_msgq, &packet, K_FOREVER);
+		return;
+	}
+
+	packet.header.is_ack = true;
+	packet.header.destination_id = packet.header.destination_id ^ packet.header.sender_id;
+	packet.header.sender_id = packet.header.destination_id ^ packet.header.sender_id;
+	packet.header.destination_id = packet.header.destination_id ^ packet.header.sender_id;
+
+	k_msgq_put(&send_msgq, &packet, K_FOREVER);
+	LOG_INF("Sent to send queue");
 }
 
-int lora_tcp_net_send(struct lora_tcp_packet *pkt)
+int lora_tcp_net_send(struct lora_tcp_packet *pkt, uint8_t *rsp, size_t *rsp_len)
 {
 	CHECKIF(pkt == NULL) {
 		LOG_ERR("Received NULL packet");
 		return -EFAULT;
 	}
 
+	uint8_t buffer[LORA_TCP_PACKET_MAX_SIZE];
+	size_t buffer_len;
+
+	struct lora_tcp_packet packet;
+
 	LOG_INF("Sending\n");
 
 	lora_tcp_packet_build(pkt, buffer, &buffer_len);
 
-	send_packet();
+	k_msgq_purge(&ack_msgq);
 
-	return 0;
-}
+	for (int i = 0; i < 3; ++i) {
+		lora_recv_async(lora_dev, NULL);
+		config.tx = true;
+		lora_config(lora_dev, &config);
 
-static void send_packet()
-{
-	lora_recv_async(lora_dev, NULL);
-	config.tx = true;
-	lora_config(lora_dev, &config);
+		int err = lora_send(lora_dev, buffer, buffer_len);
+		if (err != 0) {
+			LOG_WRN("Failed to send packet | err: %d", err);
+		}
 
-	int err = lora_send(lora_dev, buffer, buffer_len);
-	if (err != 0) {
-		LOG_WRN("Failed to send packet | err: %d", err);
+		LOG_INF("[send_packet] Sent %d bytes\n", buffer_len);
+
+		config.tx = false;
+		lora_config(lora_dev, &config);
+		lora_recv_async(lora_dev, recv_cb);
+
+		if (k_msgq_get(&ack_msgq, &packet, K_SECONDS(5)) == 0) {
+
+			LOG_WRN("Received packet from device");
+
+			if (packet.data_len == 0 || rsp == NULL || rsp_len == NULL) {
+				return 0;
+			}
+
+			memcpy(rsp, packet.data, packet.data_len);
+			*rsp_len = packet.data_len;
+
+			LOG_HEXDUMP_INF(rsp, packet.data_len, "ACK Data Saved");
+
+			return 0;
+		}
 	}
 
-	LOG_INF("[send_packet] Sent %d bytes\n", buffer_len);
-
-	config.tx = false;
-	lora_config(lora_dev, &config);
-	lora_recv_async(lora_dev, recv_cb);
+	return -1;
 }
 
-void inner_thread(void *, void *, void *)
+void send_thread(void *, void *, void *)
 {
-	k_sleep(K_MSEC(5000));
-	LOG_INF("threading\n");
-	k_sleep(K_FOREVER);
+	struct lora_tcp_packet packet;
+	uint8_t buffer[LORA_TCP_PACKET_MAX_SIZE];
+	size_t buffer_len;
+
+	while (true) {
+		if (k_msgq_get(&send_msgq, &packet, K_FOREVER) != 0) {
+			LOG_ERR("Failed to receive packet from device");
+		}
+
+		lora_tcp_packet_build(&packet, buffer, &buffer_len);
+
+		lora_recv_async(lora_dev, NULL);
+		config.tx = true;
+		lora_config(lora_dev, &config);
+
+		int err = lora_send(lora_dev, buffer, buffer_len);
+		if (err != 0) {
+			LOG_WRN("Failed to send packet | err: %d", err);
+		}
+
+		LOG_INF("[send_packet] Sent %d bytes\n", buffer_len);
+
+		config.tx = false;
+		lora_config(lora_dev, &config);
+		lora_recv_async(lora_dev, recv_cb);
+	}
 }
 
-/*K_THREAD_DEFINE(inner_tid, CONFIG_LORA_TCP_NET_THREAD_STACK_SIZE, inner_thread, NULL, NULL, NULL,
-   5, 0, 0);*/
+K_THREAD_DEFINE(send_tid, CONFIG_LORA_TCP_NET_THREAD_STACK_SIZE, send_thread, NULL, NULL, NULL, 5,
+		0, 0);

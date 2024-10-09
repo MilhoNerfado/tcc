@@ -11,6 +11,6 @@
 
 int lora_tcp_net_init(const struct device * dev);
 
-int lora_tcp_net_send(struct lora_tcp_packet *pkt);
+int lora_tcp_net_send(struct lora_tcp_packet *pkt, uint8_t *rsp, size_t *rsp_len);
 
 #endif //LORA_TCP_NET_H

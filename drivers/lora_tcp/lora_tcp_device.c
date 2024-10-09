@@ -20,13 +20,12 @@ static struct {
 void lora_tcp_device_self_set(const uint8_t id)
 {
 	self.device.id = id;
-
-	self.is_init = true;
+	self.device.is_registered = true;
 }
 
 struct lora_tcp_device *lora_tcp_device_self_get(void)
 {
-	if (!self.is_init) {
+	if (!self.device.is_registered) {
 		return NULL;
 	}
 
@@ -35,6 +34,12 @@ struct lora_tcp_device *lora_tcp_device_self_get(void)
 
 int lora_tcp_device_register(const uint8_t id)
 {
+	CHECKIF(!self.device.is_registered)
+	{
+		LOG_ERR("Self is not registered");
+		return -ENODEV;
+	}
+
 	CHECKIF(id == self.device.id) {
 		LOG_ERR("Trying to register own ID as another");
 		return -EINVAL;
@@ -51,6 +56,8 @@ int lora_tcp_device_register(const uint8_t id)
 
 		self.device_list[i].id = id;
 		self.device_list[i].is_registered = true;
+		self.device_list[i].packet.header.destination_id = id;
+		self.device_list[i].packet.header.sender_id = self.device.id;
 	}
 
 	return 0;

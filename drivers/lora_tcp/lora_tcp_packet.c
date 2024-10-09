@@ -8,7 +8,7 @@
 #include <zephyr/sys/check.h>
 
 LOG_MODULE_REGISTER(lora_tcp_packet);
-int lora_tcp_packet_build(struct lora_tcp_packet *packet, uint8_t buffer[LORA_TCP_PACKET_MAX_SIZE],
+int lora_tcp_packet_build(struct lora_tcp_packet *packet, uint8_t *buffer,
 			  size_t *buffer_length)
 {
 	CHECKIF(packet == NULL || buffer == NULL) {
@@ -38,6 +38,8 @@ int lora_tcp_packet_unpack(const uint8_t *data, const size_t data_len,
 		LOG_ERR("Invalid data length");
 		return -1;
 	};
+
+	memset(packet, 0, sizeof(struct lora_tcp_packet));
 
 	memcpy(packet, data, data_len);
 

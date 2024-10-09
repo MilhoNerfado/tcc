@@ -67,12 +67,22 @@ int lora_tcp_init(const struct device *dev, uint8_t dev_id, void *cb)
 int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len, uint8_t *rsp,
 		  size_t *rsp_len)
 {
-	struct lora_tcp_packet pkt;
+	struct lora_tcp_device* dev = lora_tcp_device_get_by_id(dest_id);
+	if (!dev) {
+		LOG_ERR("Device not found");
+		return -ENODEV;
+	}
 
-	pkt.data_len = data_len;
-	memcpy(pkt.data, data, data_len);
+	struct lora_tcp_packet* pkt = &dev->packet;
 
-	lora_tcp_net_send(&pkt);
+	pkt->header.pkt_id += 1;
+	pkt->header.is_ack = false;
+	pkt->header.crc = crc32_ieee(data, data_len);
+
+	memcpy(pkt->data, data, data_len);
+	pkt->data_len = data_len;
+
+	lora_tcp_net_send(pkt, rsp, rsp_len);
 	return 0;
 }
 
