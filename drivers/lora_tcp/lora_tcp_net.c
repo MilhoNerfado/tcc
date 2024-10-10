@@ -76,7 +76,6 @@ static void recv_cb(const struct device *dev, uint8_t *data, uint16_t size, int1
 		packet.header.pkt_id);
 
 	if (packet.header.destination_id != lora_tcp_device_self_get()->id) {
-
 		return;
 	}
 

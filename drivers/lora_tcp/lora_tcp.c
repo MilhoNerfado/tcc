@@ -105,16 +105,22 @@ int lora_tcp_unregister(const uint8_t id)
  */
 static int control_ping(const struct shell *sh, size_t argc, char **argv)
 {
-	char ping[] = "ping";
+	ARG_UNUSED(sh);
+	ARG_UNUSED(argc);
 
-	lora_tcp_send(1, ping, strlen(ping), NULL, NULL);
+	char ping[] = "ping";
+	uint8_t dest;
+
+	sscanf(argv[2], "%d", &dest);
+
+	lora_tcp_send(dest, ping, strlen(ping), NULL, NULL);
 	return 0;
 }
 
 SHELL_STATIC_SUBCMD_SET_CREATE(lora_tcp_sub,
-			       SHELL_CMD(ping, NULL, "ping the other device", control_ping),
+			       SHELL_CMD_ARG(ping, NULL, "ping the other device", control_ping, 2, 0),
 			       SHELL_SUBCMD_SET_END);
 
-SHELL_CMD_REGISTER(lora_tcp, &lora_tcp_sub, "Demo commands", NULL);
+SHELL_CMD_REGISTER(tcp, &lora_tcp_sub, "Demo commands", NULL);
 
 #endif /* ifdef CONFIG_LORA_TCP_SHELL */
