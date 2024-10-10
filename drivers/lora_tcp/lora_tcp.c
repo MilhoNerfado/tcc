@@ -47,7 +47,7 @@ int lora_tcp_init(const struct device *dev, uint8_t dev_id, void *cb)
 
 	lora_tcp_device_self_set(dev_id);
 
-	lora_tcp_net_init(dev);
+	lora_tcp_net_init(dev, cb);
 
 	self.is_init = true;
 
@@ -73,7 +73,7 @@ int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len, 
 		return -ENODEV;
 	}
 
-	struct lora_tcp_packet* pkt = &dev->packet;
+	struct lora_tcp_packet* pkt = &dev->send_packet;
 
 	pkt->header.pkt_id += 1;
 	pkt->header.is_ack = false;

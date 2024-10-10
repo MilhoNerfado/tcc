@@ -56,8 +56,8 @@ int lora_tcp_device_register(const uint8_t id)
 
 		self.device_list[i].id = id;
 		self.device_list[i].is_registered = true;
-		self.device_list[i].packet.header.destination_id = id;
-		self.device_list[i].packet.header.sender_id = self.device.id;
+		self.device_list[i].send_packet.header.destination_id = id;
+		self.device_list[i].send_packet.header.sender_id = self.device.id;
 	}
 
 	return 0;

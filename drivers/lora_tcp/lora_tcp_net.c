@@ -24,12 +24,12 @@ K_MSGQ_DEFINE(recv_msgq, sizeof(struct lora_tcp_packet), 10, 4);
 
 static struct lora_modem_config config;
 static const struct device *lora_dev;
-static lora_tcp_cb callback;
+static lora_tcp_cb user_callback;
 
 static void recv_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rssi,
                     int8_t snr);
 
-int lora_tcp_net_init(const struct device *dev)
+int lora_tcp_net_init(const struct device *dev, void *callback)
 {
 	if (dev == NULL) {
 		LOG_ERR("Device is NULL");
@@ -37,6 +37,8 @@ int lora_tcp_net_init(const struct device *dev)
 	}
 
 	lora_dev = dev;
+
+	user_callback = callback;
 
 	if (!device_is_ready(lora_dev)) {
 		LOG_ERR("%s Device not ready", lora_dev->name);
@@ -191,12 +193,31 @@ void recv_thread(void *, void *, void *)
 			LOG_ERR("Failed to receive packet from device");
 		}
 
-		packet.header.is_ack = true;
-		packet.header.destination_id =
-			packet.header.destination_id ^ packet.header.sender_id;
-		packet.header.sender_id = packet.header.destination_id ^ packet.header.sender_id;
-		packet.header.destination_id =
-			packet.header.destination_id ^ packet.header.sender_id;
+		struct lora_tcp_device *device = lora_tcp_device_get_by_id(packet.header.sender_id);
+
+		if (device == NULL) {
+			LOG_ERR("Received message from unknown device");
+			return;
+		}
+
+		if (packet.header.pkt_id == device->recv_packet.header.pkt_id) {
+			k_msgq_put(&send_msgq, &device->recv_packet, K_FOREVER);
+			return;
+		}
+
+		device->recv_packet.header = packet.header;
+
+		// user callback
+
+		// update crc
+
+		device->recv_packet.header.is_ack = true;
+		device->recv_packet.header.destination_id = packet.header.sender_id;
+		device->recv_packet.header.sender_id = packet.header.destination_id;
+
+		// TODO Remove bellow after adding callback and crc update
+		memcpy(device->recv_packet.data, packet.data, packet.data_len);
+		device->recv_packet.data_len = packet.data_len;
 
 		k_msgq_put(&send_msgq, &packet, K_FOREVER);
 		LOG_INF("Sent to send queue");

@@ -12,7 +12,9 @@ struct lora_tcp_device {
 	bool is_registered;
 	uint8_t id;
 	uint8_t snd_pkt_id;
-	struct lora_tcp_packet packet;
+	struct lora_tcp_packet send_packet;
+	struct lora_tcp_packet recv_packet;
+
 };
 
 void lora_tcp_device_self_set(const uint8_t id);

@@ -10,7 +10,7 @@
 LOG_MODULE_REGISTER(main);
 
 
-void relay(uint8_t *data, size_t data_len, uint8_t *response, size_t *response_size)
+void relay(uint8_t id, uint8_t *data, size_t data_len, uint8_t *response, size_t *response_size)
 {
 	LOG_WRN("Relay ran | data lenght: %lu", data_len);
 }
