@@ -27,7 +27,7 @@ static const struct device *lora_dev;
 static lora_tcp_cb user_callback;
 
 static void recv_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rssi,
-                    int8_t snr);
+		    int8_t snr);
 
 int lora_tcp_net_init(const struct device *dev, void *callback)
 {
@@ -66,38 +66,30 @@ int lora_tcp_net_init(const struct device *dev, void *callback)
 }
 
 static void recv_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rssi,
-                    int8_t snr)
+		    int8_t snr)
 {
 	struct lora_tcp_packet packet;
-	struct lora_tcp_packet send_packet;
-
-	LOG_INF("Received data from device | data_len: %u", size);
 
 	LOG_HEXDUMP_INF(data, size, "Received");
 
 	lora_tcp_packet_unpack(data, size, &packet);
 
-	LOG_INF("send_id: %u | dest_id: %u | crc: %u | pkt_id: %u",
-	        packet.header.sender_id, packet.header.destination_id, packet.header.crc,
-	        packet.header.pkt_id);
-
 	if (packet.header.destination_id != lora_tcp_device_self_get()->id) {
+		LOG_INF("Not self id");
+		LOG_INF("self id: %u | packet dest id: %u", lora_tcp_device_self_get()->id,
+			packet.header.destination_id);
 		return;
 	}
 
 	if (packet.header.crc != crc32_ieee(packet.data, packet.data_len)) {
 		LOG_ERR("CRC mismatch | expected: %d got: %d",
-		        crc32_ieee(packet.data, packet.data_len), packet.header.crc);
-		return;
-	}
-
-	if (packet.header.is_ack) {
-		LOG_WRN("Received ACK");
-		k_msgq_put(&ack_msgq, &packet, K_FOREVER);
+			crc32_ieee(packet.data, packet.data_len), packet.header.crc);
 		return;
 	}
 
 	k_msgq_put(&recv_msgq, &packet, K_FOREVER);
+
+	LOG_INF("Send recv msg to recv_msgq");
 }
 
 int lora_tcp_net_send(struct lora_tcp_packet *pkt, uint8_t *rsp, size_t *rsp_len)
@@ -110,7 +102,7 @@ int lora_tcp_net_send(struct lora_tcp_packet *pkt, uint8_t *rsp, size_t *rsp_len
 	uint8_t buffer[LORA_TCP_PACKET_MAX_SIZE];
 	size_t buffer_len;
 
-	struct lora_tcp_packet packet;
+	struct lora_tcp_packet ack_packet;
 
 	LOG_INF("Sending\n");
 
@@ -134,18 +126,19 @@ int lora_tcp_net_send(struct lora_tcp_packet *pkt, uint8_t *rsp, size_t *rsp_len
 		lora_config(lora_dev, &config);
 		lora_recv_async(lora_dev, recv_cb);
 
-		if (k_msgq_get(&ack_msgq, &packet, K_SECONDS(5)) == 0) {
+		if (k_msgq_get(&ack_msgq, &ack_packet, K_SECONDS(5)) == 0) {
 
 			LOG_WRN("Received packet from device");
 
-			if (packet.data_len == 0 || rsp == NULL || rsp_len == NULL) {
+			if (rsp == NULL || rsp_len == NULL) {
+				LOG_WRN("No response buffer pointer");
 				return 0;
 			}
 
-			memcpy(rsp, packet.data, packet.data_len);
-			*rsp_len = packet.data_len;
+			memcpy(rsp, ack_packet.data, ack_packet.data_len);
+			*rsp_len = ack_packet.data_len;
 
-			LOG_HEXDUMP_INF(rsp, packet.data_len, "ACK Data Saved");
+			LOG_HEXDUMP_INF(rsp, *rsp_len, "ACK Data Saved");
 
 			return 0;
 		}
@@ -160,10 +153,17 @@ void send_thread(void *, void *, void *)
 	uint8_t buffer[LORA_TCP_PACKET_MAX_SIZE];
 	size_t buffer_len;
 
+	LOG_WRN("Thread started");
+
 	while (true) {
 		if (k_msgq_get(&send_msgq, &packet, K_FOREVER) != 0) {
 			LOG_ERR("Failed to receive packet from device");
 		}
+
+		LOG_INF("[send_thread] Received packet from device");
+		LOG_INF("[send_thread] send_id: %u | dest_id: %u | crc: %u | pkt_id: %u is_ack: %s",
+			packet.header.sender_id, packet.header.destination_id, packet.header.crc,
+			packet.header.pkt_id, packet.header.is_ack ? "true" : "false");
 
 		lora_tcp_packet_build(&packet, buffer, &buffer_len);
 
@@ -176,8 +176,6 @@ void send_thread(void *, void *, void *)
 			LOG_WRN("Failed to send packet | err: %d", err);
 		}
 
-		LOG_INF("[send_packet] Sent %d bytes\n", buffer_len);
-
 		config.tx = false;
 		lora_config(lora_dev, &config);
 		lora_recv_async(lora_dev, recv_cb);
@@ -187,6 +185,8 @@ void send_thread(void *, void *, void *)
 void recv_thread(void *, void *, void *)
 {
 	struct lora_tcp_packet packet;
+
+	LOG_WRN("Thread started");
 
 	while (true) {
 		if (k_msgq_get(&recv_msgq, &packet, K_FOREVER) != 0) {
@@ -200,12 +200,19 @@ void recv_thread(void *, void *, void *)
 			return;
 		}
 
-		if (packet.header.pkt_id == device->recv_packet.header.pkt_id) {
-			k_msgq_put(&send_msgq, &device->recv_packet, K_FOREVER);
+		if (packet.header.is_ack) {
+			LOG_WRN("Received ACK");
+			k_msgq_put(&ack_msgq, &packet, K_FOREVER);
 			return;
 		}
 
-		device->recv_packet.header = packet.header;
+		if (packet.header.pkt_id == device->recv_packet.header.pkt_id) {
+			k_msgq_put(&send_msgq, &device->recv_packet, K_FOREVER);
+			LOG_WRN("Same pkg");
+			return;
+		}
+
+		device->recv_packet.header.pkt_id = packet.header.pkt_id;
 
 		// user callback
 
@@ -219,13 +226,13 @@ void recv_thread(void *, void *, void *)
 		memcpy(device->recv_packet.data, packet.data, packet.data_len);
 		device->recv_packet.data_len = packet.data_len;
 
-		k_msgq_put(&send_msgq, &packet, K_FOREVER);
+		k_msgq_put(&send_msgq, &device->recv_packet, K_FOREVER);
 		LOG_INF("Sent to send queue");
 	}
 }
 
 K_THREAD_DEFINE(send_tid, CONFIG_LORA_TCP_NET_THREAD_STACK_SIZE, send_thread, NULL, NULL, NULL, 5,
-                0, 0);
+		0, 0);
 
-K_THREAD_DEFINE(recv_tid, CONFIG_LORA_TCP_NET_THREAD_STACK_SIZE, send_thread, NULL, NULL, NULL, 5,
-                0, 0);
+K_THREAD_DEFINE(recv_tid, CONFIG_LORA_TCP_NET_THREAD_STACK_SIZE, recv_thread, NULL, NULL, NULL, 5,
+		0, 0);

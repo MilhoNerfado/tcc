@@ -67,13 +67,13 @@ int lora_tcp_init(const struct device *dev, uint8_t dev_id, void *cb)
 int lora_tcp_send(const uint8_t dest_id, uint8_t *data, const uint8_t data_len, uint8_t *rsp,
 		  size_t *rsp_len)
 {
-	struct lora_tcp_device* dev = lora_tcp_device_get_by_id(dest_id);
+	struct lora_tcp_device *dev = lora_tcp_device_get_by_id(dest_id);
 	if (!dev) {
 		LOG_ERR("Device not found");
 		return -ENODEV;
 	}
 
-	struct lora_tcp_packet* pkt = &dev->send_packet;
+	struct lora_tcp_packet *pkt = &dev->send_packet;
 
 	pkt->header.pkt_id += 1;
 	pkt->header.is_ack = false;
@@ -109,16 +109,25 @@ static int control_ping(const struct shell *sh, size_t argc, char **argv)
 	ARG_UNUSED(argc);
 
 	char ping[] = "ping";
-	uint8_t dest;
 
-	sscanf(argv[2], "%d", &dest);
+	char *end;
+
+	const uint8_t dest = strtol(argv[1], &end, 10);
+
+	if (end == argv[1] || *end != '\0') {
+		LOG_ERR("Invalid dest");
+		return -EINVAL;
+	}
+
+	printf("ping: %d\n", dest);
 
 	lora_tcp_send(dest, ping, strlen(ping), NULL, NULL);
 	return 0;
 }
 
 SHELL_STATIC_SUBCMD_SET_CREATE(lora_tcp_sub,
-			       SHELL_CMD_ARG(ping, NULL, "ping the other device", control_ping, 2, 0),
+			       SHELL_CMD_ARG(ping, NULL, "ping the other device", control_ping, 2,
+					     0),
 			       SHELL_SUBCMD_SET_END);
 
 SHELL_CMD_REGISTER(tcp, &lora_tcp_sub, "Demo commands", NULL);
