@@ -13,7 +13,6 @@ static struct {
 	struct lora_tcp_device device_list[CONFIG_LORA_TCP_DEVICE_MAX];
 	bool is_init;
 } self = {
-	.device_list = {0},
 	.is_init = false,
 };
 

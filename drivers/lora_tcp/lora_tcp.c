@@ -100,6 +100,32 @@ int lora_tcp_unregister(const uint8_t id)
 
 #ifdef CONFIG_LORA_TCP_SHELL
 
+struct lora_shell_data
+{
+	uint8_t dev_id;
+	uint8_t data[CONFIG_LORA_TCP_DATA_MAX_SIZE];
+	uint8_t data_len;
+};
+
+K_MSGQ_DEFINE(lora_shell_msgq, sizeof(struct lora_shell_data), 4, 4);
+
+static void shell_cmd_thread(void *, void *, void *)
+{
+	struct lora_shell_data dat;
+	uint8_t rsp[CONFIG_LORA_TCP_DATA_MAX_SIZE];
+	size_t rsp_len;
+
+	while (k_msgq_get(&lora_shell_msgq, &dat, K_FOREVER) ==  0) {
+		LOG_HEXDUMP_WRN(dat.data, dat.data_len, "Sending:");
+		lora_tcp_send(dat.dev_id, dat.data, dat.data_len, rsp, &rsp_len);
+		LOG_HEXDUMP_WRN(rsp, rsp_len, "Response:");
+	}
+
+	LOG_ERR("shell cmd thread finished");
+}
+
+K_THREAD_DEFINE(lora_shell_tid, 1024, shell_cmd_thread, NULL, NULL, NULL, 5, 0, 0);
+
 /**
  * @brief Shell command to test lora_tcp functionality
  */
@@ -108,25 +134,29 @@ static int control_ping(const struct shell *sh, size_t argc, char **argv)
 	ARG_UNUSED(sh);
 	ARG_UNUSED(argc);
 
-	char ping[] = "ping";
-
 	char *end;
 
-	const uint8_t dest = strtol(argv[1], &end, 10);
+	struct lora_shell_data dat;
+
+	dat.dev_id = strtol(argv[1], &end, 10);
 
 	if (end == argv[1] || *end != '\0') {
 		LOG_ERR("Invalid dest");
 		return -EINVAL;
 	}
 
-	printf("ping: %d\n", dest);
+	dat.data_len = strlen(argv[2]);
+	memcpy(dat.data, argv[2], dat.data_len);
 
-	lora_tcp_send(dest, ping, strlen(ping), NULL, NULL);
+	k_msgq_put(&lora_shell_msgq, &dat, K_FOREVER);
+
+	LOG_INF("Sending data: %s", dat.data);
+
 	return 0;
 }
 
 SHELL_STATIC_SUBCMD_SET_CREATE(lora_tcp_sub,
-			       SHELL_CMD_ARG(ping, NULL, "ping the other device", control_ping, 2,
+			       SHELL_CMD_ARG(msg, NULL, "ping the other device", control_ping, 3,
 					     0),
 			       SHELL_SUBCMD_SET_END);
 
