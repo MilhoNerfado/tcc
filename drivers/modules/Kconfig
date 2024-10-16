@@ -1,0 +1,16 @@
+menuconfig MODULES
+    bool "Blink device drivers"
+
+if MODULES
+
+config MODULES_LOG_LEVEL
+    int "Lora tcp log level"
+    default 2
+    range 0 4
+
+
+module = MODULES
+module-str = modules
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # MODULES

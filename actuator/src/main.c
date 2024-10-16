@@ -10,6 +10,8 @@ LOG_MODULE_REGISTER(main);
 
 #define SELF_ID 3
 
+
+
 void relay(uint8_t *data, size_t data_len, uint8_t *response, size_t *response_size)
 {
 	LOG_WRN("Relay ran | data lenght: %u", data_len);

@@ -2,4 +2,5 @@ menu "Drivers"
 rsource "blink/Kconfig"
 rsource "relay/Kconfig"
 rsource "lora_tcp/Kconfig"
+rsource "modules/Kconfig"
 endmenu
