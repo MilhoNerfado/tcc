@@ -6,7 +6,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/check.h>
 
-LOG_MODULE_REGISTER(lora_tcp_device);
+LOG_MODULE_REGISTER(lora_tcp_device, CONFIG_LORA_TCP_DEVICE_LOG_LEVEL);
 
 static struct {
 	struct lora_tcp_device device;
@@ -33,8 +33,7 @@ struct lora_tcp_device *lora_tcp_device_self_get(void)
 
 int lora_tcp_device_register(const uint8_t id)
 {
-	CHECKIF(!self.device.is_registered)
-	{
+	CHECKIF(!self.device.is_registered) {
 		LOG_ERR("Self is not registered");
 		return -ENODEV;
 	}

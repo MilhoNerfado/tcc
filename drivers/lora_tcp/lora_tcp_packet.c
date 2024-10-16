@@ -7,9 +7,9 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/check.h>
 
-LOG_MODULE_REGISTER(lora_tcp_packet);
-int lora_tcp_packet_build(struct lora_tcp_packet *packet, uint8_t *buffer,
-			  size_t *buffer_length)
+LOG_MODULE_REGISTER(lora_tcp_packet, CONFIG_LORA_TCP_PACKET_LOG_LEVEL);
+
+int lora_tcp_packet_build(struct lora_tcp_packet *packet, uint8_t *buffer, size_t *buffer_length)
 {
 	CHECKIF(packet == NULL || buffer == NULL) {
 		LOG_ERR("Invalid parameters");

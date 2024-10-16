@@ -15,8 +15,7 @@
 
 #include <stdlib.h>
 
-LOG_MODULE_REGISTER(lora_tcp);
-#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+LOG_MODULE_REGISTER(lora_tcp, CONFIG_LORA_TCP_LOG_LEVEL);
 
 static struct {
 	bool is_init;
@@ -100,8 +99,7 @@ int lora_tcp_unregister(const uint8_t id)
 
 #ifdef CONFIG_LORA_TCP_SHELL
 
-struct lora_shell_data
-{
+struct lora_shell_data {
 	uint8_t dev_id;
 	uint8_t data[CONFIG_LORA_TCP_DATA_MAX_SIZE];
 	uint8_t data_len;
@@ -115,7 +113,7 @@ static void shell_cmd_thread(void *, void *, void *)
 	uint8_t rsp[CONFIG_LORA_TCP_DATA_MAX_SIZE];
 	size_t rsp_len;
 
-	while (k_msgq_get(&lora_shell_msgq, &dat, K_FOREVER) ==  0) {
+	while (k_msgq_get(&lora_shell_msgq, &dat, K_FOREVER) == 0) {
 		LOG_HEXDUMP_WRN(dat.data, dat.data_len, "Sending:");
 		lora_tcp_send(dat.dev_id, dat.data, dat.data_len, rsp, &rsp_len);
 		LOG_HEXDUMP_WRN(rsp, rsp_len, "Response:");

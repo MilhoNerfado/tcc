@@ -27,6 +27,28 @@ config LORA_TCP_RECV_THREAD_PRIORITY
     int "Priority for the receiving thread"
     default 5
 
+config LORA_TCP_LOG_LEVEL
+    int "Lora tcp log level"
+    default 2
+    range 0 4
+
+config LORA_TCP_NET_LOG_LEVEL
+    int "Lora tcp log level for net component"
+    default 2
+    range 0 4
+
+config LORA_TCP_DEVICE_LOG_LEVEL
+    int "Lora tcp log level for device component"
+    default 2
+    range 0 4
+
+config LORA_TCP_PACKET_LOG_LEVEL
+    int "Lora tcp log level for device component"
+    default 2
+    range 0 4
+
+
+
 module = LORA_TCP
 module-str = lora_tcp
 source "subsys/logging/Kconfig.template.log_config"

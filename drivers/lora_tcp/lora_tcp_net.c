@@ -13,7 +13,7 @@
 #include <zephyr/sys/check.h>
 #include <zephyr/sys/crc.h>
 
-LOG_MODULE_REGISTER(lora_tcp_net);
+LOG_MODULE_REGISTER(lora_tcp_net, CONFIG_LORA_TCP_NET_LOG_LEVEL);
 
 #define CONFIG_LORA_TCP_NET_THREAD_STACK_SIZE (1 * 512)
 
@@ -253,7 +253,6 @@ void recv_thread(void *, void *, void *)
 		k_msgq_put(&send_msgq, &device->recv_packet, K_FOREVER);
 		LOG_INF("Sent to send queue");
 	}
-
 }
 
 K_THREAD_DEFINE(send_tid, CONFIG_LORA_TCP_NET_THREAD_STACK_SIZE, send_thread, NULL, NULL, NULL, 5,
