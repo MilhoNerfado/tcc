@@ -95,10 +95,6 @@ int lora_tcp_unregister(const uint8_t id)
 	return lora_tcp_device_unregister(id);
 }
 
-/* --- Module Shell functions --- */
-
-#ifdef CONFIG_LORA_TCP_SHELL
-
 struct lora_shell_data {
 	uint8_t dev_id;
 	uint8_t data[CONFIG_LORA_TCP_DATA_MAX_SIZE];
@@ -123,6 +119,25 @@ static void shell_cmd_thread(void *, void *, void *)
 }
 
 K_THREAD_DEFINE(lora_shell_tid, 1024, shell_cmd_thread, NULL, NULL, NULL, 5, 0, 0);
+
+int lora_tcp_dumb_send(uint8_t id, uint8_t *data, const uint8_t data_len)
+{
+	struct lora_shell_data dat = {
+		.dev_id = id,
+		.data = {0},
+		.data_len = data_len,
+	};
+
+	memcpy(dat.data, data, data_len);
+
+	k_msgq_put(&lora_shell_msgq, &dat, K_FOREVER);
+
+	return 0;
+}
+
+/* --- Module Shell functions --- */
+
+#ifdef CONFIG_LORA_TCP_SHELL
 
 /**
  * @brief Shell command to test lora_tcp functionality

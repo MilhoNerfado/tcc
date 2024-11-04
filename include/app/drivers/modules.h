@@ -8,16 +8,21 @@
 #include <zephyr/drivers/gpio.h>
 
 struct module {
-	const char *name;
 	const struct gpio_dt_spec gpio;
-	const gpio_flags_t flags;
 };
 
-#define MODULE_DECLARE(_name, _desc, _gpio, _flags)                                                \
-	static struct module _name = {                                                             \
-		.gpio = _gpio,                                                                     \
-		.name = _desc,                                                                     \
-		.flags = _flags,                                                                   \
-	};
+#define MODULE_DECLARE(_device_id, _device)                                                        \
+	STRUCT_SECTION_ITERABLE(modules_iter_devices, _device_id) = {                              \
+		.gpio = _device,                                                                   \
+	}
+
+void modules_init(void)
+{
+//	STRUCT_SECTION_FOREACH(modules_iter_devices, _device)
+//	{
+//		gpio_pin_configure(_device.port, _device.pin, _device.flags);
+//	}
+}
+
 
 #endif // MODULES_H
