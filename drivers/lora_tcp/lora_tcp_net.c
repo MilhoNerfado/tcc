@@ -15,7 +15,7 @@
 
 LOG_MODULE_REGISTER(lora_tcp_net, CONFIG_LORA_TCP_NET_LOG_LEVEL);
 
-#define CONFIG_LORA_TCP_NET_THREAD_STACK_SIZE (1 * 512)
+#define CONFIG_LORA_TCP_NET_THREAD_STACK_SIZE (4 * 512)
 
 K_MSGQ_DEFINE(ack_msgq, sizeof(struct lora_tcp_packet), 10, 4);
 

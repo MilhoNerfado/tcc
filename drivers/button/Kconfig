@@ -1,0 +1,11 @@
+menuconfig BUTTON
+    bool "Blink device drivers"
+
+if BUTTON
+
+
+module = BUTTON
+module-str = button
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # BUTTON
