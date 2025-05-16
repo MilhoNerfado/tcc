@@ -3,5 +3,4 @@ rsource "blink/Kconfig"
 rsource "button/Kconfig"
 rsource "relay/Kconfig"
 rsource "lora_tcp/Kconfig"
-rsource "modules/Kconfig"
 endmenu

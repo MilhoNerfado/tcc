@@ -1,4 +1,3 @@
 add_subdirectory(blink)
 add_subdirectory_ifdef(CONFIG_LORA_TCP lora_tcp)
 add_subdirectory_ifdef(CONFIG_BUTTON button)
-add_subdirectory_ifdef(CONFIG_MODULES modules)

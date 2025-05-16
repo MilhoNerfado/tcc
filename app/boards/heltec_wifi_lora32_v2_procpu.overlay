@@ -1,0 +1,35 @@
+/ {
+	aliases {
+		input0 = &input0;
+		input1 = &input1;
+
+        saida0 = &saida0;
+        saida1 = &saida1;
+	};
+
+	buttons {
+		compatible = "gpio-keys";
+
+		input0: input_0 {
+            gpios = <&gpio1 5 (GPIO_ACTIVE_LOW)>;
+		};
+
+		input1: input_1 {
+			gpios = <&gpio1 6 (GPIO_ACTIVE_LOW)>;
+		};
+	};
+
+    leds {
+        compatible = "gpio-leds";
+
+
+		saida0: saida_0 {
+            gpios = <&gpio0 12 (GPIO_ACTIVE_HIGH)>;
+		};
+
+		saida1: saida_1 {
+			gpios = <&gpio0 13 (GPIO_ACTIVE_HIGH)>;
+		};
+
+    };
+};

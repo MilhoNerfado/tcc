@@ -5,8 +5,9 @@
 #include <zephyr/kernel.h>
 
 #include "app/drivers/button.h"
+#include "zephyr/logging/log.h"
 
-#define SW0_NODE DT_ALIAS(input0)
+LOG_MODULE_REGISTER(button);
 
 struct button_data {
 	struct gpio_callback button_cb_data;
@@ -23,7 +24,7 @@ static void cooldown_expired0(struct k_work *work)
 	int val = gpio_pin_get_dt(button_list[0].button);
 	enum button_evt evt = val ? BUTTON_EVT_PRESSED : BUTTON_EVT_RELEASED;
 	if (button_list[0].user_cb) {
-		button_list[0].user_cb(evt);
+		button_list[0].user_cb(button_list[0].button, evt);
 	}
 }
 
@@ -34,7 +35,7 @@ static void cooldown_expired1(struct k_work *work)
 	int val = gpio_pin_get_dt(button_list[1].button);
 	enum button_evt evt = val ? BUTTON_EVT_PRESSED : BUTTON_EVT_RELEASED;
 	if (button_list[1].user_cb) {
-		button_list[1].user_cb(evt);
+		button_list[1].user_cb(button_list[1].button, evt);
 	}
 }
 
@@ -68,22 +69,27 @@ int button_init(int id, const struct gpio_dt_spec *button, button_event_handler_
 	button_list[id].button = button;
 
 	if (!device_is_ready(button->port)) {
+		LOG_ERR("Button not ready");
 		return -EIO;
 	}
 
 	err = gpio_pin_configure_dt(button, GPIO_INPUT);
 	if (err) {
+		LOG_ERR("Failed to configure button err=%d", err);
+
 		return err;
 	}
 
 	err = gpio_pin_interrupt_configure_dt(button, GPIO_INT_EDGE_BOTH);
 	if (err) {
+		LOG_ERR("Failed to configure button interruption err=%d", err);
 		return err;
 	}
 
 	gpio_init_callback(&button_list[id].button_cb_data, cb_list[id], BIT(button->pin));
 	err = gpio_add_callback(button->port, &button_list[id].button_cb_data);
 	if (err) {
+		LOG_ERR("Failed to configure button callback err=%d", err);
 		return err;
 	}
 
@@ -93,10 +99,10 @@ int button_init(int id, const struct gpio_dt_spec *button, button_event_handler_
 char *helper_button_evt_str(enum button_evt evt)
 {
 	switch (evt) {
-	case BUTTON_EVT_PRESSED:
-		return "Pressed";
 	case BUTTON_EVT_RELEASED:
 		return "Released";
+	case BUTTON_EVT_PRESSED:
+		return "Pressed";
 	default:
 		return "Unknown";
 	}
