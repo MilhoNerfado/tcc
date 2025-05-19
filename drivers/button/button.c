@@ -24,7 +24,7 @@ static void cooldown_expired0(struct k_work *work)
 	int val = gpio_pin_get_dt(button_list[0].button);
 	enum button_evt evt = val ? BUTTON_EVT_PRESSED : BUTTON_EVT_RELEASED;
 	if (button_list[0].user_cb) {
-		button_list[0].user_cb(button_list[0].button, evt);
+		button_list[0].user_cb(0, evt);
 	}
 }
 
@@ -35,7 +35,7 @@ static void cooldown_expired1(struct k_work *work)
 	int val = gpio_pin_get_dt(button_list[1].button);
 	enum button_evt evt = val ? BUTTON_EVT_PRESSED : BUTTON_EVT_RELEASED;
 	if (button_list[1].user_cb) {
-		button_list[1].user_cb(button_list[1].button, evt);
+		button_list[1].user_cb(1, evt);
 	}
 }
 
