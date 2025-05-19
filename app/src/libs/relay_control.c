@@ -10,7 +10,7 @@
 
 LOG_MODULE_REGISTER(relay_control);
 
-ZBUS_CHAN_DEFINE(output_chan, struct chan_out, NULL, NULL, ZBUS_OBSERVERS_EMPTY, {});
+ZBUS_CHAN_DEFINE(output_chan, struct chan_out, NULL, NULL, ZBUS_OBSERVERS(output_sub), {0});
 
 ZBUS_MSG_SUBSCRIBER_DEFINE(output_sub);
 
@@ -24,19 +24,24 @@ static const struct gpio_dt_spec inputs[] = {GPIO_DT_SPEC_GET(DT_ALIAS(input0), 
 
 void button_handler(int id, enum button_evt evt)
 {
-	LOG_INF("Button0 %s", helper_button_evt_str(evt));
+	struct chan_out *chan_msg;
+	LOG_DBG("Button%d %s", id, helper_button_evt_str(evt));
+
+	gpio_pin_set_dt(&led, evt);
 
 	if (evt != BUTTON_EVT_RELEASED) {
 		return;
 	}
 
-	zbus_chan_claim(&output_chan, K_MSEC(200));
+	if (zbus_chan_claim(&output_chan, K_MSEC(200)) != 0) {
+		LOG_ERR("Failed to claim zbus channel on button event");
+		return;
+	}
 
-	struct chan_out *chan_msg = zbus_chan_msg(&output_chan);
-	bool *state = &chan_msg->outputs[id];
+	chan_msg = zbus_chan_msg(&output_chan);
 
-	*state = !state;
-	LOG_INF("Changed output0 to %s", *state ? "Disabled" : "Enabled");
+	chan_msg->outputs[id] = !chan_msg->outputs[id];
+	LOG_INF("Changed output%d to %s", id, chan_msg->outputs[id] ? "Disabled" : "Enabled");
 
 	zbus_chan_finish(&output_chan);
 	zbus_chan_notify(&output_chan, K_MSEC(200));
@@ -53,7 +58,6 @@ void output_handler(void *arg0, void *arg1, void *arg2)
 	bool *old_val;
 
 	for (int i = 0; i < NUM_OF_OUTPUTS; i++) {
-		LOG_WRN("[UPDATE] output%d %s", i, state.outputs[i] ? "disabled" : "enabled");
 
 		button_init(i, &inputs[i], button_handler);
 
@@ -61,6 +65,7 @@ void output_handler(void *arg0, void *arg1, void *arg2)
 			LOG_ERR("Failed to config output0");
 			return;
 		}
+		LOG_INF("Registered button handler of ID=%d", i);
 	}
 
 	while (true) {
