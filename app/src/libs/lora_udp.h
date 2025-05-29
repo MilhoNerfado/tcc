@@ -12,7 +12,6 @@ struct lora_udp_header {
 	uint16_t sender_id;
 	uint16_t destination_id;
 	uint32_t crc;
-	uint16_t pkt_id;
 	size_t data_len;
 };
 

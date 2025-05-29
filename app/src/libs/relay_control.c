@@ -69,7 +69,7 @@ void output_handler(void *arg0, void *arg1, void *arg2)
 	}
 
 	while (true) {
-		if (zbus_sub_wait_msg(&output_sub, &chan, &state, K_MSEC(100)) != 0) {
+		if (zbus_sub_wait_msg(&output_sub, &chan, &state, K_FOREVER) != 0) {
 			continue;
 		}
 
