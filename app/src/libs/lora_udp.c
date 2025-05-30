@@ -11,10 +11,10 @@
 #include "xtea.h"
 
 #include "zephyr/logging/log.h"
-#include "zephyr/sys/printk.h"
+#include "zephyr/logging/log_core.h"
 #include "zephyr/sys/crc.h"
 
-LOG_MODULE_DECLARE(lora_udp);
+LOG_MODULE_REGISTER(radio_lib, LOG_LEVEL_DBG);
 
 ZBUS_CHAN_DECLARE(output_chan);
 
@@ -37,7 +37,7 @@ static const uint32_t key[4] = {11666574, 3905216703, 702153731, 1592004906};
 void recv_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rssi, int8_t snr)
 {
 	ARG_UNUSED(dev);
-	printk("New lora message | rssi: %d | snr: %d", rssi, snr);
+	LOG_DBG("New lora message | rssi: %d | snr: %d", rssi, snr);
 	LOG_HEXDUMP_DBG(data, size, " Data:");
 
 	uint32_t deciphered[16] = {0};
@@ -46,7 +46,7 @@ void recv_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rss
 	struct chan_out *outs;
 
 	if (size > sizeof(deciphered) || data == NULL) {
-		printk("Ignored size too big\n");
+		LOG_DBG("Ignored size too big\n");
 		return;
 	}
 
@@ -63,33 +63,33 @@ void recv_cb(const struct device *dev, uint8_t *data, uint16_t size, int16_t rss
 	outs = (struct chan_out *)&msg->data;
 
 	if (msg == NULL) {
-		printk("msg == NULL\n");
+		LOG_INF("msg == NULL\n");
 	}
 	if (msg->header.data_len) {
-		printk("data_len %lu\n", msg->header.data_len);
+		LOG_DBG("data_len %lu\n", msg->header.data_len);
 	}
 	if (outs == NULL) {
-		printk("outs == NULL\n");
+		LOG_DBG("outs == NULL\n");
 	}
 
 	if (msg->header.destination_id != 1) {
-		printk("Invalid destination_id | got: %d | expected: %d \n",
-		       msg->header.destination_id, 1);
+		LOG_DBG("Invalid destination_id | got: %d | expected: %d \n",
+			msg->header.destination_id, 1);
 		return;
 	}
 
 	if (msg->header.sender_id != 1) {
-		printk("Invalid sender_id | got: %d | expected: %d\n", msg->header.sender_id, 1);
+		LOG_DBG("Invalid sender_id | got: %d | expected: %d\n", msg->header.sender_id, 1);
 		return;
 	}
 
 	crc = crc32_ieee((uint8_t *)outs, msg->header.data_len);
 	if (crc != msg->header.crc) {
-		printk("Invalid crc | got: %d | expected: %d\n", crc, msg->header.crc);
+		LOG_DBG("Invalid crc | got: %d | expected: %d\n", crc, msg->header.crc);
 		return;
 	}
 
-	printk("output0: %d output1: %d\n", outs->outputs[0], outs->outputs[1]);
+	LOG_INF("output0: %d output1: %d\n", outs->outputs[0], outs->outputs[1]);
 
 	zbus_chan_pub(&output_chan, outs, K_MSEC(200));
 }
