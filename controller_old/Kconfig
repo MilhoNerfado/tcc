@@ -1,7 +1,0 @@
-menu "Zephyr"
-source "Kconfig.zephyr"
-endmenu
-
-module = CONTROLLER
-module-str = CONTROLLER
-source "subsys/logging/Kconfig.template.log_config"
